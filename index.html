@@ -299,7 +299,7 @@ function setQnh(hpa, ageMin, place) {
   qnhBox.classList.remove('load', 'err');
   qnhVal.innerHTML = Math.round(hpa) + '<span class="u">hPa</span>';
   const ageTxt = ageMin != null ? (ageMin < 1 ? "à l'instant" : 'il y a ' + ageMin + ' min') : '';
-  const placeTxt = place ? '<span class="stn">' + place + '</span>' : '<span class="stn">indicatif</span>';
+  const placeTxt = place ? '<span class="stn">' + place + '</span>' : '<span class="stn"><i>indicatif</i></span>';
   qnhMeta.innerHTML = placeTxt +
                       (place ? '<br>indicatif' : '') +
                       (ageTxt ? '<br>' + ageTxt : '');
