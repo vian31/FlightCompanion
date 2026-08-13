@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test CORS METAR</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f6f2e9; color: #17140f; padding: 18px; line-height: 1.5;
+  }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  .sub { font-size: 14px; color: #8a8172; margin-bottom: 18px; }
+  .card {
+    background: #fff; border: 1px solid #e7e0d1; border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 12px;
+  }
+  .card h2 { font-size: 15px; margin-bottom: 4px; }
+  .card .url { font-size: 12px; color: #8a8172; word-break: break-all; margin-bottom: 8px; }
+  .status { font-size: 15px; font-weight: 700; }
+  .status.wait { color: #8a8172; }
+  .status.ok   { color: #2f7a3b; }
+  .status.ko   { color: #8a3b2f; }
+  .detail {
+    font-size: 12px; color: #555; margin-top: 8px; white-space: pre-wrap;
+    background: #faf7f0; border-radius: 8px; padding: 8px; max-height: 160px; overflow: auto;
+  }
+  button {
+    background: #3b5c47; color: #f6f2e9; border: none; border-radius: 10px;
+    padding: 12px 20px; font-size: 16px; font-weight: 600; margin-bottom: 18px; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <h1>Test CORS — sources d'observations METAR</h1>
+  <div class="sub">Ouvre cette page depuis ton GitHub Pages (https). Chaque carte dit si le navigateur a pu LIRE la réponse (CORS ok) ou non.</div>
+
+  <button id="run">▶ Relancer les tests</button>
+  <div id="cards"></div>
+
+<script>
+// Sources testées. Toutes sont des endpoints publics SANS clé pour ce test,
+// afin d'isoler purement la question du CORS.
+const SOURCES = [
+  {
+    name: "aviationweather.gov (API data)",
+    url: "https://aviationweather.gov/api/data/metar?ids=LFBR&format=json"
+  },
+  {
+    name: "aviationweather.gov (cgi legacy)",
+    url: "https://aviationweather.gov/cgi-bin/data/metar.php?ids=LFBR"
+  },
+  {
+    name: "NOAA tgftp (fichier texte brut)",
+    url: "https://tgftp.nws.noaa.gov/data/observations/metar/stations/LFBR.TXT"
+  },
+  {
+    name: "AVWX (sans token — on veut juste voir si le CORS répond)",
+    url: "https://avwx.rest/api/metar/LFBR"
+  },
+  {
+    name: "Aviation Weather (metar-taf.com public)",
+    url: "https://api.metar-taf.com/metar?icao=LFBR"
+  }
+];
+
+function card(s, i) {
+  return `<div class="card" id="c${i}">
+    <h2>${s.name}</h2>
+    <div class="url">${s.url}</div>
+    <div class="status wait" id="st${i}">⏳ en cours…</div>
+    <div class="detail" id="dt${i}"></div>
+  </div>`;
+}
+
+async function test(s, i) {
+  const st = document.getElementById('st' + i);
+  const dt = document.getElementById('dt' + i);
+  const t0 = performance.now();
+  try {
+    const r = await fetch(s.url, { method: 'GET' });
+    const ms = Math.round(performance.now() - t0);
+    // Si on arrive ici SANS exception, le navigateur a pu lire la réponse → CORS ok
+    let body = '';
+    try { body = await r.text(); } catch (e) { body = '(corps illisible)'; }
+    st.className = 'status ok';
+    st.textContent = `✅ CORS OK — HTTP ${r.status} (${ms} ms)`;
+    dt.textContent = 'Réponse lue par le navigateur :\n' + body.slice(0, 500);
+  } catch (e) {
+    const ms = Math.round(performance.now() - t0);
+    // Une exception ici = presque toujours un blocage CORS (ou réseau)
+    st.className = 'status ko';
+    st.textContent = `❌ Bloqué (${ms} ms)`;
+    dt.textContent = 'Erreur : ' + e.name + ' — ' + e.message +
+      '\n\nUn "TypeError: Failed to fetch" ici = le navigateur a refusé de lire la réponse (CORS absent).';
+  }
+}
+
+function runAll() {
+  const box = document.getElementById('cards');
+  box.innerHTML = SOURCES.map(card).join('');
+  SOURCES.forEach((s, i) => test(s, i));
+}
+
+document.getElementById('run').addEventListener('click', runAll);
+runAll();
+</script>
+</body>
+</html>
