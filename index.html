@@ -30,7 +30,7 @@
     flex-shrink: 0;
   }
   header h1 {
-    font-size: 15px;
+    font-size: 16px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--muted);
@@ -86,8 +86,14 @@
     font-size: 35px;
     cursor: pointer;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
   }
   .qnh .refresh:active { background: rgba(255,255,255,0.3); }
+  .qnh .meta em { font-style: italic; }
 
   /* ---- Bloc mémo (texte mis en forme) ---- */
   .memo { margin-bottom: 26px; }
@@ -101,16 +107,16 @@
   }
   .memo h2:first-child { margin-top: 0; }
   .memo h3 {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--accent);
     letter-spacing: 0.04em;
     margin: 14px 0 4px;
   }
-  .memo p { font-size: 15.5px; line-height: 1.55; margin: 6px 0; }
+  .memo p { font-size: 16px; line-height: 1.55; margin: 6px 0; }
   .memo ul { list-style: none; margin: 6px 0; }
   .memo li {
-    font-size: 15.5px;
+    font-size: 16px;
     line-height: 1.5;
     padding-left: 18px;
     position: relative;
@@ -131,13 +137,13 @@
     padding: 12px 16px;
     margin: 12px 0;
   }
-  .memo .encart p { font-size: 14.5px; margin: 4px 0; }
+  .memo .encart p { font-size: 16px; margin: 4px 0; }
   .memo .encart .sub { font-weight: 700; margin-top: 8px; }
   .memo .encart .sub:first-child { margin-top: 0; }
   .memo .annonce {
     color: var(--brown);
     font-weight: 700;
-    font-size: 15.5px;
+    font-size: 16px;
     margin: 6px 0;
   }
   .memo b { font-weight: 700; }
@@ -146,7 +152,7 @@
   /* ---- Zone de saisie tactile ---- */
   .note-wrap { margin-bottom: 10px; }
   .note-wrap .cap {
-    font-size: 12px;
+    font-size: 16px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--muted);
@@ -156,7 +162,7 @@
     align-items: baseline;
   }
   .note-wrap .clr {
-    font-size: 11px;
+    font-size: 16px;
     letter-spacing: 0.04em;
     color: var(--brown);
     text-transform: none;
@@ -299,9 +305,9 @@ function setQnh(hpa, ageMin, place) {
   qnhBox.classList.remove('load', 'err');
   qnhVal.innerHTML = Math.round(hpa) + '<span class="u">hPa</span>';
   const ageTxt = ageMin != null ? (ageMin < 1 ? "à l'instant" : 'il y a ' + ageMin + ' min') : '';
-  const placeTxt = place ? '<span class="stn">' + place + '</span>' : '<span class="stn"><i>indicatif</i></span>';
+  const placeTxt = place ? '<span class="stn">' + place + '</span>' : '<span class="stn"><em>indicatif</em></span>';
   qnhMeta.innerHTML = placeTxt +
-                      (place ? '<br>indicatif' : '') +
+                      (place ? '<br><em>indicatif</em>' : '') +
                       (ageTxt ? '<br>' + ageTxt : '');
 }
 
