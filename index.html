@@ -301,14 +301,13 @@ const qnhBox  = document.getElementById('qnh');
 const qnhVal  = document.getElementById('qnhVal');
 const qnhMeta = document.getElementById('qnhMeta');
 
-function setQnh(hpa, ageMin, place) {
+function setQnh(hpa, majTxt, place) {
   qnhBox.classList.remove('load', 'err');
   qnhVal.innerHTML = Math.round(hpa) + '<span class="u">hPa</span>';
-  const ageTxt = ageMin != null ? (ageMin < 1 ? "à l'instant" : 'il y a ' + ageMin + ' min') : '';
   const placeTxt = place ? '<span class="stn">' + place + '</span>' : '<span class="stn"><em>indicatif</em></span>';
   qnhMeta.innerHTML = placeTxt +
                       (place ? '<br><em>indicatif</em>' : '') +
-                      (ageTxt ? '<br>' + ageTxt : '');
+                      (majTxt ? '<br>' + majTxt : '');
 }
 
 // géocodage inverse → nom de commune (Nominatim/OSM, gratuit, CORS ok)
@@ -340,10 +339,13 @@ async function loadQnh() {
     const { latitude: lat, longitude: lon } = pos.coords;
     qnhMeta.textContent = 'Lecture pression…';
 
+    // timeformat=unixtime → current.time en secondes epoch UTC (sans ambiguïté de fuseau)
+    // utc_offset_seconds : décalage local pour réafficher l'heure du pas en heure locale
     const url = 'https://api.open-meteo.com/v1/forecast'
               + '?latitude=' + lat.toFixed(4)
               + '&longitude=' + lon.toFixed(4)
-              + '&current=pressure_msl';
+              + '&current=pressure_msl'
+              + '&timeformat=unixtime&timezone=auto';
 
     try {
       const r = await fetch(url);
@@ -352,17 +354,22 @@ async function loadQnh() {
       const hpa = data && data.current && data.current.pressure_msl;
       if (hpa == null) { qnhError('Pression indisponible'); return; }
 
-      // âge de la donnée (heure de l'obs courante renvoyée par l'API)
-      let ageMin = null;
-      const t = data.current.time;
-      if (t) {
-        const obs = Date.parse(t);   // ISO local ou epoch selon réglage
-        if (!isNaN(obs)) ageMin = Math.max(0, Math.round((Date.now() - obs) / 60000));
+      // heure du pas de modèle (pas une observation) affichée en local : "maj HH:MM"
+      // avec timezone=auto, current.time est déjà décalé en local ; unixtime reste en base UTC,
+      // donc on rajoute utc_offset_seconds pour lire l'heure locale via les getters UTC.
+      let majTxt = null;
+      const t = data.current.time;                    // secondes epoch (UTC)
+      const off = data.utc_offset_seconds || 0;       // décalage local en secondes
+      if (typeof t === 'number') {
+        const d = new Date((t + off) * 1000);
+        const hh = String(d.getUTCHours()).padStart(2, '0');
+        const mm = String(d.getUTCMinutes()).padStart(2, '0');
+        majTxt = 'à ' + hh + ':' + mm;
       }
       // affiche d'abord le QNH, puis complète avec le lieu dès qu'il arrive
-      setQnh(hpa, ageMin, null);
+      setQnh(hpa, majTxt, null);
       const place = await placeName(lat, lon);
-      if (place) setQnh(hpa, ageMin, place);
+      if (place) setQnh(hpa, majTxt, place);
     } catch (e) {
       qnhError('Réseau indisponible<br><span style="opacity:.7">' + e.message + '</span>');
     }
