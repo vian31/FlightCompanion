@@ -295,12 +295,26 @@ const qnhBox  = document.getElementById('qnh');
 const qnhVal  = document.getElementById('qnhVal');
 const qnhMeta = document.getElementById('qnhMeta');
 
-function setQnh(hpa, ageMin) {
+function setQnh(hpa, ageMin, place) {
   qnhBox.classList.remove('load', 'err');
   qnhVal.innerHTML = Math.round(hpa) + '<span class="u">hPa</span>';
   const ageTxt = ageMin != null ? (ageMin < 1 ? "à l'instant" : 'il y a ' + ageMin + ' min') : '';
-  qnhMeta.innerHTML = '<span class="stn">indicatif</span><br>modélisé à ta position' +
+  const placeTxt = place ? '<span class="stn">' + place + '</span>' : '<span class="stn">indicatif</span>';
+  qnhMeta.innerHTML = placeTxt +
+                      (place ? '<br>indicatif' : '') +
                       (ageTxt ? '<br>' + ageTxt : '');
+}
+
+// géocodage inverse → nom de commune (Nominatim/OSM, gratuit, CORS ok)
+async function placeName(lat, lon) {
+  try {
+    const u = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=12'
+            + '&lat=' + lat.toFixed(4) + '&lon=' + lon.toFixed(4);
+    const r = await fetch(u);
+    if (!r.ok) return null;
+    const a = (await r.json()).address || {};
+    return a.village || a.town || a.city || a.municipality || a.county || null;
+  } catch (e) { return null; }
 }
 function qnhError(msg) {
   qnhBox.classList.remove('load');
@@ -339,7 +353,10 @@ async function loadQnh() {
         const obs = Date.parse(t);   // ISO local ou epoch selon réglage
         if (!isNaN(obs)) ageMin = Math.max(0, Math.round((Date.now() - obs) / 60000));
       }
-      setQnh(hpa, ageMin);
+      // affiche d'abord le QNH, puis complète avec le lieu dès qu'il arrive
+      setQnh(hpa, ageMin, null);
+      const place = await placeName(lat, lon);
+      if (place) setQnh(hpa, ageMin, place);
     } catch (e) {
       qnhError('Réseau indisponible<br><span style="opacity:.7">' + e.message + '</span>');
     }
