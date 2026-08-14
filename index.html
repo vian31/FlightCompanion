@@ -43,13 +43,13 @@
   .sunset-badge {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 16px;
-    color: var(--muted);
+    gap: 8px;
+    font-size: 22px;
+    color: #2f6fb2;
     font-variant-numeric: tabular-nums;
   }
-  .sunset-badge .moon { font-size: 18px; }
-  .sunset-badge .t { font-weight: 700; color: var(--ink); }
+  .sunset-badge .moon { font-size: 26px; color: #2f6fb2; }
+  .sunset-badge .t { font-weight: 800; color: #2f6fb2; }
 
   .scroll { flex: 1; overflow-y: auto; padding: 14px 22px 40px; }
 
@@ -282,7 +282,7 @@ renderSunset(MURET.lat,MURET.lon);
 /* ---------- 4) ROSE DES VENTS ---------- */
 const rose=document.getElementById('rose');
 const CX=120,CY=120,R=92,F_FULL=20;   // flèche max à 20 kt
-function baseRose(extra){
+function baseRose(extra, noDot){
   let s='';
   s+='<circle cx="120" cy="120" r="92" fill="none" stroke="#e3ead9" stroke-width="2"/>';
   s+='<circle cx="120" cy="120" r="46" fill="none" stroke="#eee6d6" stroke-width="1"/>';
@@ -292,7 +292,7 @@ function baseRose(extra){
   for(const [lab,a] of [['N',0],['E',90],['S',180],['O',270]]){const x=CX+64*Math.sin(a*rad),y=CY-64*Math.cos(a*rad);
     s+='<text x="'+x.toFixed(1)+'" y="'+(y+5).toFixed(1)+'" text-anchor="middle" font-size="16" font-weight="700" fill="#8a8172">'+lab+'</text>';}
   s+=(extra||'');
-  s+='<circle cx="120" cy="120" r="4" fill="#3b5c47"/>';
+  if(!noDot) s+='<circle cx="120" cy="120" r="4" fill="#3b5c47"/>';
   rose.innerHTML=s;
 }
 // flèche de provenance : part du bord (côté d'où vient le vent) vers le centre
@@ -330,13 +330,13 @@ function renderWind(w){
   const ro=document.getElementById('windReadout');
   if(!w || w.speed==null){ baseRose(''); ro.textContent='—'; return; }
 
-  if(w.calm){ baseRose(centerText('CALME','#3b5c47')); ro.innerHTML='Calme'; return; }
+  if(w.calm){ baseRose(centerText('CALME','#3b5c47'), true); ro.innerHTML='Calme'; return; }
 
   if(w.vrb && w.from!=null && w.to!=null){
     // vent variable avec plage de directions : quartier colorié + force au centre
     const force = w.gust ? (w.speed+' G '+w.gust) : (''+w.speed);
     const col = w.gust ? '#b23b2f' : '#3b5c47';
-    baseRose(sectorSvg(w.from,w.to)+centerText(force,col));
+    baseRose(sectorSvg(w.from,w.to)+centerText(force,col), true);
     ro.innerHTML = 'VRB '+String(w.from).padStart(3,'0')+'–'+String(w.to).padStart(3,'0')+'° · '
                  + (w.gust ? (w.speed+' <span class="gust">G '+w.gust+'</span>') : w.speed) + ' <span class="u2">kt</span>';
     return;
@@ -346,7 +346,7 @@ function renderWind(w){
     // variable sans plage précise : pas de direction fiable → cercle + force au centre
     const force = w.gust ? (w.speed+' G '+w.gust) : (''+w.speed);
     const col = w.gust ? '#b23b2f' : '#3b5c47';
-    baseRose('<circle cx="120" cy="120" r="92" fill="rgba(59,92,71,0.10)"/>'+centerText(force,col));
+    baseRose('<circle cx="120" cy="120" r="92" fill="rgba(59,92,71,0.10)"/>'+centerText(force,col), true);
     ro.innerHTML = 'VRB · ' + (w.gust ? (w.speed+' <span class="gust">G '+w.gust+'</span>') : w.speed) + ' <span class="u2">kt</span>';
     return;
   }
@@ -463,7 +463,9 @@ async function fetchNearest(lat,lon,n){
   if(!Array.isArray(arr)) return [];
   return arr.map(o=>{
     const s=o.station||o;
-    return { icao: s.icao||s.gps||'', city: s.city||s.name||'' };
+    let city=s.city||s.name||'';
+    if(city.indexOf('/')>=0) city=city.split('/').pop().trim();  // "Toulouse/Blagnac" -> "Blagnac"
+    return { icao: s.icao||s.gps||'', city: city };
   }).filter(x=>x.icao);
 }
 
@@ -555,6 +557,18 @@ buildDrum('drumRwy',['12','30'],0);
 const note=document.getElementById('note'),NKEY='memo-note';
 try{const v=localStorage.getItem(NKEY);if(v!=null)note.value=v;}catch(e){}
 note.addEventListener('input',()=>{try{localStorage.setItem(NKEY,note.value);}catch(e){}});
+// quand le clavier s'ouvre, ramener le champ dans la zone visible
+note.addEventListener('focus',()=>{
+  setTimeout(()=>{ try{ note.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){ note.scrollIntoView(); } }, 300);
+});
+// si l'API visualViewport est dispo (Android/iOS récents), réagir au redimensionnement dû au clavier
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',()=>{
+    if(document.activeElement===note){
+      try{ note.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
+    }
+  });
+}
 document.getElementById('clrNote').addEventListener('click',()=>{note.value='';try{localStorage.removeItem(NKEY);}catch(e){}note.focus();});
 </script>
 </body>
