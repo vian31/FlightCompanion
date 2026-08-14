@@ -65,14 +65,14 @@
     display: flex;
     gap: 8px;
     margin-bottom: 12px;
-    justify-content: center;
-    flex-wrap: wrap;
   }
   .picker .pill {
+    flex: 1 1 0;
+    min-width: 0;
     border: 1px solid var(--line);
     background: #fff;
     border-radius: 999px;
-    padding: 8px 14px;
+    padding: 8px 6px;
     font-size: 16px;
     color: var(--muted);
     cursor: pointer;
@@ -80,10 +80,15 @@
     flex-direction: column;
     align-items: center;
     line-height: 1.2;
-    min-width: 0;
+    text-align: center;
+    overflow: hidden;
   }
   .picker .pill .pi { font-weight: 800; color: var(--accent); letter-spacing: 0.03em; }
-  .picker .pill .pc { font-size: 16px; opacity: 0.8; }
+  .picker .pill .pc {
+    font-size: 16px; opacity: 0.8;
+    max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   .picker .pill.active {
     background: var(--accent);
     border-color: var(--accent);
@@ -93,6 +98,7 @@
   .station .icao { font-weight: 800; color: var(--accent); font-size: 18px; letter-spacing: 0.04em; }
   .station .city { color: var(--ink); }
   .station .age { display: block; font-size: 16px; opacity: 0.8; margin-top: 2px; }
+  .station .age.stale { color: var(--red); opacity: 1; font-weight: 700; }
   .station .fr {
     display: inline-block;
     font-size: 16px;
@@ -369,16 +375,17 @@ function altimToHpa(alt){if(!alt||alt.value==null)return null;let v=alt.value;if
 function fmtAge(obsIso, refIso){
   const t=Date.parse(obsIso);
   if(isNaN(t)) return '';
-  // référence = UNIQUEMENT l'heure serveur AVWX (fiable). Pas de repli sur Date.now()
-  // car l'horloge du téléphone peut être fausse et produire un âge aberrant.
   if(!refIso) return '';
   const ref=Date.parse(refIso);
   if(isNaN(ref)) return '';
-  const min=Math.max(0,Math.round((ref-t)/60000));
+  const min=Math.round((ref-t)/60000);
+  if(min<0) return '';                 // futur = anormal
   if(min<1) return "à l'instant";
   if(min<60) return 'il y a '+min+' min';
   const h=Math.floor(min/60), m=min%60;
-  return 'il y a '+h+' h '+String(m).padStart(2,'0');
+  if(min<1440) return 'il y a '+h+' h '+String(m).padStart(2,'0');
+  const days=Math.floor(min/1440);
+  return 'il y a '+days+' j';           // âge en jours pour données périmées
 }
 // heure Zulu du METAR depuis time.repr (ex "140830Z" -> "08:30Z"), fiable et sans horloge locale
 function zuluFromRepr(repr){
@@ -423,12 +430,26 @@ function showMetar(d){
   if(d.info){ city=d.info.city||d.info.name||''; }
   const age=fmtAge(d.time&&d.time.dt?d.time.dt:null, d.meta&&d.meta.timestamp?d.meta.timestamp:null);
   const zulu=zuluFromRepr(d.time&&d.time.repr?d.time.repr:'');
-  const timeTxt = zulu ? (zulu + (age ? ' · ' + age : '')) : age;
+
+  // données périmées : AVWX signale un cache dépassé, ou l'observation est trop ancienne
+  const obsT=d.time&&d.time.dt?Date.parse(d.time.dt):NaN;
+  const refT=d.meta&&d.meta.timestamp?Date.parse(d.meta.timestamp):NaN;
+  const ageMin=(!isNaN(obsT)&&!isNaN(refT))?Math.round((refT-obsT)/60000):null;
+  const stale = (d.meta&&d.meta.warning) || (ageMin!=null && ageMin>180);  // > 3 h
+
   const fr = d.flight_rules || '';
   const frPill = fr ? '<span class="fr '+fr+'">'+fr+'</span>' : '';
+
+  let timeHtml;
+  if(stale){
+    timeHtml = '<span class="age stale">⚠ '+(zulu?zulu+' · ':'')+(age||'donnée périmée')+' — station silencieuse</span>';
+  } else {
+    const timeTxt = zulu ? (zulu + (age ? ' · ' + age : '')) : age;
+    timeHtml = timeTxt ? '<span class="age">'+timeTxt+'</span>' : '';
+  }
+
   document.getElementById('station').innerHTML =
-    '<span class="icao">'+icao+'</span>'+(city?' · <span class="city">'+city+'</span>':'')+frPill+
-    (timeTxt?'<span class="age">'+timeTxt+'</span>':'');
+    '<span class="icao">'+icao+'</span>'+(city?' · <span class="city">'+city+'</span>':'')+frPill+timeHtml;
 
   const hpa=altimToHpa(d.altimeter);
   document.getElementById('qnhVal').innerHTML=(hpa!=null?hpa:'––––')+'<span class="u">hPa</span>';
