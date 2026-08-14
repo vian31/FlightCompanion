@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Test AVWX — JSON brut</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f6f2e9; color: #17140f; padding: 18px; line-height: 1.5;
+  }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  .sub { font-size: 16px; color: #8a8172; margin-bottom: 16px; }
+  label { display: block; font-size: 16px; font-weight: 700; margin: 12px 0 6px; }
+  input {
+    width: 100%; border: 1px solid #e7e0d1; border-radius: 10px;
+    padding: 12px 14px; font-size: 16px; font-family: inherit; outline: none;
+  }
+  input:focus { border-color: #3b5c47; }
+  .row { display: flex; gap: 8px; align-items: flex-end; margin-top: 12px; }
+  .row .col { flex: 1; }
+  button {
+    background: #3b5c47; color: #f6f2e9; border: none; border-radius: 10px;
+    padding: 13px 20px; font-size: 16px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  button:active { background: #2f4a39; }
+  .hint { font-size: 14px; color: #8a8172; margin-top: 6px; }
+  .status { font-size: 16px; font-weight: 700; margin: 16px 0 8px; }
+  .status.ok { color: #2f7a3b; } .status.ko { color: #8a3b2f; }
+  .quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .quick span {
+    background: #e3ead9; color: #3b5c47; border-radius: 999px;
+    padding: 6px 12px; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  pre {
+    background: #1e1b16; color: #e8e2d4; border-radius: 12px;
+    padding: 14px; margin-top: 10px; font-size: 13px; line-height: 1.45;
+    white-space: pre-wrap; word-break: break-word; overflow-x: auto;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+  .focus { margin-top: 14px; background: #fff; border: 1px solid #e7e0d1; border-radius: 12px; padding: 12px 14px; }
+  .focus h3 { font-size: 15px; margin-bottom: 8px; }
+  .focus .kv { font-size: 14px; margin: 3px 0; }
+  .focus .kv b { color: #3b5c47; }
+  .copy { margin-top: 8px; font-size: 15px; color: #7a4a22; cursor: pointer; display: inline-block; }
+</style>
+</head>
+<body>
+  <h1>Test AVWX — JSON brut</h1>
+  <div class="sub">Colle ton token, choisis un aérodrome, et regarde le JSON complet renvoyé par l'API.</div>
+
+  <label for="token">Token AVWX</label>
+  <input type="text" id="token" placeholder="colle ton token ici" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <div class="hint">Il reste sur ton téléphone (mémorisé localement) et n'est jamais envoyé ailleurs qu'à AVWX.</div>
+
+  <div class="row">
+    <div class="col">
+      <label for="icao">Aérodrome (ICAO)</label>
+      <input type="text" id="icao" value="LFBF" autocomplete="off" autocapitalize="characters" spellcheck="false">
+    </div>
+    <button id="go">Tester</button>
+  </div>
+  <div class="quick" id="quick"></div>
+
+  <div class="status" id="status"></div>
+
+  <!-- résumé des champs qui nous intéressent -->
+  <div class="focus" id="focus" style="display:none">
+    <h3>Champs clés</h3>
+    <div id="focusBody"></div>
+  </div>
+
+  <div class="copy" id="copyBtn" style="display:none">📋 copier le JSON</div>
+  <pre id="out" style="display:none"></pre>
+
+<script>
+  const TK = 'avwx-token';
+  const tokenEl = document.getElementById('token');
+  const icaoEl  = document.getElementById('icao');
+  const statusEl= document.getElementById('status');
+  const outEl   = document.getElementById('out');
+  const focusEl = document.getElementById('focus');
+  const focusBody = document.getElementById('focusBody');
+  const copyBtn = document.getElementById('copyBtn');
+
+  // token mémorisé
+  try { const v = localStorage.getItem(TK); if (v) tokenEl.value = v; } catch(e){}
+  tokenEl.addEventListener('input', () => { try { localStorage.setItem(TK, tokenEl.value.trim()); } catch(e){} });
+
+  // raccourcis d'aérodromes à tester
+  const QUICK = ['LFBF','LFBO','LFBR','LFML','EGSC','KMCO','LFPG','LFBP'];
+  const quick = document.getElementById('quick');
+  QUICK.forEach(code => {
+    const s = document.createElement('span');
+    s.textContent = code;
+    s.addEventListener('click', () => { icaoEl.value = code; run(); });
+    quick.appendChild(s);
+  });
+
+  let lastJson = '';
+
+  async function run() {
+    const token = tokenEl.value.trim();
+    const icao  = icaoEl.value.trim().toUpperCase();
+    if (!token) { statusEl.className = 'status ko'; statusEl.textContent = '⚠ colle ton token d’abord'; return; }
+    if (!icao)  { statusEl.className = 'status ko'; statusEl.textContent = '⚠ indique un ICAO'; return; }
+
+    statusEl.className = 'status'; statusEl.textContent = '⏳ requête ' + icao + '…';
+    focusEl.style.display = 'none'; outEl.style.display = 'none'; copyBtn.style.display = 'none';
+
+    try {
+      // format d'appel identique à la doc : Authorization: BEARER <token>
+      const url = 'https://avwx.rest/api/metar/' + icao + '?options=info';
+      const r = await fetch(url, { headers: { 'Authorization': 'BEARER ' + token } });
+      const text = await r.text();
+
+      let data = null;
+      try { data = JSON.parse(text); } catch(e) {}
+
+      if (!r.ok) {
+        statusEl.className = 'status ko';
+        statusEl.textContent = '❌ HTTP ' + r.status;
+      } else {
+        statusEl.className = 'status ok';
+        statusEl.textContent = '✅ OK — HTTP ' + r.status;
+      }
+
+      lastJson = data ? JSON.stringify(data, null, 2) : text;
+      outEl.textContent = lastJson;
+      outEl.style.display = 'block';
+      copyBtn.style.display = 'inline-block';
+
+      // extrait les champs qui nous intéressent
+      if (data) {
+        const g = (obj, path) => path.split('.').reduce((o,k)=> (o==null?undefined:o[k]), obj);
+        const lines = [];
+        const push = (label, val) => lines.push('<div class="kv"><b>'+label+'</b> : '+ (val===undefined?'—':JSON.stringify(val)) +'</div>');
+        push('station', data.station);
+        push('time.dt', g(data,'time.dt'));
+        push('time.repr', g(data,'time.repr'));
+        push('flight_rules', data.flight_rules);
+        push('altimeter', data.altimeter);
+        push('temperature.value', g(data,'temperature.value'));
+        push('dewpoint.value', g(data,'dewpoint.value'));
+        push('wind_direction', data.wind_direction);
+        push('wind_speed', data.wind_speed);
+        push('wind_gust', data.wind_gust);
+        push('wind_variable_direction', data.wind_variable_direction);
+        push('info.city', g(data,'info.city'));
+        push('info.name', g(data,'info.name'));
+        focusBody.innerHTML = lines.join('');
+        focusEl.style.display = 'block';
+      }
+    } catch (e) {
+      statusEl.className = 'status ko';
+      statusEl.textContent = '❌ ' + e.name + ' — ' + e.message;
+    }
+  }
+
+  document.getElementById('go').addEventListener('click', run);
+  copyBtn.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(lastJson); copyBtn.textContent = '✓ copié'; setTimeout(()=>copyBtn.textContent='📋 copier le JSON',1500); } catch(e){}
+  });
+</script>
+</body>
+</html>
