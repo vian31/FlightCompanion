@@ -203,7 +203,7 @@
   .note-wrap { margin-bottom: 10px; }
   .note-wrap .cap { font-size: 16px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; align-items: baseline; }
   .note-wrap .clr { font-size: 16px; letter-spacing: 0.04em; color: var(--brown); text-transform: none; cursor: pointer; }
-  textarea.note { width: 100%; min-height: 160px; resize: vertical; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; font-family: inherit; font-size: 16px; line-height: 1.5; color: var(--ink); outline: none; }
+  textarea.note { width: 100%; min-height: 160px; resize: vertical; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; font-family: inherit; font-size: 20px; line-height: 1.5; color: var(--ink); outline: none; }
   textarea.note:focus { border-color: var(--accent); }
 </style>
 </head>
@@ -281,7 +281,7 @@
     <!-- notes -->
     <div class="note-wrap">
       <div class="cap"><span>Notes</span><span class="clr" id="clrNote">effacer</span></div>
-      <textarea class="note" id="note" placeholder="Saisie libre au doigt…"></textarea>
+      <textarea class="note" id="note"></textarea>
     </div>
 
   </div>
@@ -665,7 +665,12 @@ buildDrum('drumRwy',['12','30'],0);
 /* ---------- 8) NOTES ---------- */
 const note=document.getElementById('note'),NKEY='memo-note';
 try{const v=localStorage.getItem(NKEY);if(v!=null)note.value=v;}catch(e){}
-note.addEventListener('input',()=>{try{localStorage.setItem(NKEY,note.value);}catch(e){}});
+function saveNote(){try{localStorage.setItem(NKEY,note.value);}catch(e){}}
+note.addEventListener('input',saveNote);
+// filets de sécurité : sauvegarde aussi quand l'app passe en arrière-plan ou se ferme
+note.addEventListener('blur',saveNote);
+window.addEventListener('pagehide',saveNote);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') saveNote(); });
 // quand le clavier s'ouvre, ramener le champ dans la zone visible
 note.addEventListener('focus',()=>{
   setTimeout(()=>{ try{ note.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){ note.scrollIntoView(); } }, 300);
