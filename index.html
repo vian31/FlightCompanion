@@ -216,6 +216,9 @@
 
 <script>
 const MURET = { lat: 43.4486, lon: 1.2633 };
+// TEST : forcer un aérodrome par ICAO au lieu de la station la plus proche.
+// Mettre '' (chaîne vide) pour revenir au comportement normal (géoloc → station proche).
+const FORCE_STATION = 'LFBZ';
 const rad = Math.PI / 180, deg = 180 / Math.PI;
 
 /* ---------- 2) CLÉ AVWX ---------- */
@@ -335,15 +338,24 @@ function setLoading(on){[blkQnh,blkTemp,blkWind].forEach(b=>b.classList.toggle('
 function altimToHpa(alt){if(!alt||alt.value==null)return null;let v=alt.value;if(v<100)v=v*33.8639;return Math.round(v);}
 function fmtAge(obsIso, refIso){
   const t=Date.parse(obsIso);
-  if(isNaN(t))return '';
-  // référence = heure serveur AVWX (meta.timestamp) si dispo, sinon horloge locale
-  const ref = refIso ? Date.parse(refIso) : Date.now();
-  const base = isNaN(ref) ? Date.now() : ref;
-  const min=Math.max(0,Math.round((base-t)/60000));
-  if(min<1)return "à l'instant";
-  if(min<60)return 'il y a '+min+' min';
-  const h=Math.floor(min/60),m=min%60;
+  if(isNaN(t)) return '';
+  // référence = UNIQUEMENT l'heure serveur AVWX (fiable). Pas de repli sur Date.now()
+  // car l'horloge du téléphone peut être fausse et produire un âge aberrant.
+  if(!refIso) return '';
+  const ref=Date.parse(refIso);
+  if(isNaN(ref)) return '';
+  const min=Math.max(0,Math.round((ref-t)/60000));
+  if(min<1) return "à l'instant";
+  if(min<60) return 'il y a '+min+' min';
+  const h=Math.floor(min/60), m=min%60;
   return 'il y a '+h+' h '+String(m).padStart(2,'0');
+}
+// heure Zulu du METAR depuis time.repr (ex "140830Z" -> "08:30Z"), fiable et sans horloge locale
+function zuluFromRepr(repr){
+  if(!repr) return '';
+  const m=String(repr).match(/^(\d{2})(\d{2})(\d{2})Z?$/);
+  if(!m) return '';
+  return m[2]+':'+m[3]+'Z';
 }
 
 // Extrait le vent depuis le JSON AVWX en couvrant les formats du METAR
@@ -380,7 +392,9 @@ async function fetchMetar(lat,lon){
   setLoading(true);
   document.getElementById('station').textContent='Lecture METAR…';
   try{
-    const url='https://avwx.rest/api/metar/'+lat.toFixed(4)+','+lon.toFixed(4)+'?options=info&onfail=cache';
+    // cible : ICAO forcé (test) sinon coordonnées → station la plus proche
+    const target = FORCE_STATION ? FORCE_STATION : (lat.toFixed(4)+','+lon.toFixed(4));
+    const url='https://avwx.rest/api/metar/'+target+'?options=info&onfail=cache';
     const r=await fetch(url,{headers:{'Authorization':key}});
     if(r.status===401||r.status===403){document.getElementById('station').textContent='Clé refusée';clearKey();refreshKeybox();setLoading(false);return;}
     if(!r.ok) throw new Error('HTTP '+r.status);
@@ -391,11 +405,13 @@ async function fetchMetar(lat,lon){
     let city='';
     if(d.info){ city=d.info.city||d.info.name||''; }
     const age=fmtAge(d.time&&d.time.dt?d.time.dt:null, d.meta&&d.meta.timestamp?d.meta.timestamp:null);
+    const zulu=zuluFromRepr(d.time&&d.time.repr?d.time.repr:'');
+    const timeTxt = zulu ? (zulu + (age ? ' · ' + age : '')) : age;
     const fr = d.flight_rules || '';
     const frPill = fr ? '<span class="fr '+fr+'">'+fr+'</span>' : '';
     document.getElementById('station').innerHTML =
       '<span class="icao">'+icao+'</span>'+(city?' · <span class="city">'+city+'</span>':'')+frPill+
-      (age?'<span class="age">'+age+'</span>':'');
+      (timeTxt?'<span class="age">'+timeTxt+'</span>':'');
 
     // QNH
     const hpa=altimToHpa(d.altimeter);
@@ -421,6 +437,12 @@ async function fetchMetar(lat,lon){
 function start(){
   refreshKeybox();
   if(!getKey()){ document.getElementById('station').textContent='Clé AVWX requise'; return; }
+  // station forcée (test) : pas besoin de géoloc pour le METAR
+  if(FORCE_STATION){
+    renderSunset(MURET.lat,MURET.lon);
+    fetchMetar(MURET.lat,MURET.lon);   // lat/lon ignorés, FORCE_STATION prime
+    return;
+  }
   if(navigator.geolocation){
     document.getElementById('station').textContent='Localisation…';
     navigator.geolocation.getCurrentPosition(
