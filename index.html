@@ -127,6 +127,27 @@
 
   .pad { padding: 8px 22px 20px; }
 
+  /* En-tête de chaque onglet : titre discret (+ badge éventuel) */
+  .tab-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 22px 4px;
+  }
+  .tab-header h1 {
+    font-size: 17px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .tab-header .today {
+    font-size: 16px;
+    color: var(--muted);
+    text-transform: capitalize;
+  }
+
   /* Titre de section commun à tous les onglets */
   .sect-title {
     font-size: 16px;
@@ -360,7 +381,6 @@
   /* =========================================================
      MÉTÉO
      ========================================================= */
-  .meteo-top { display: flex; align-items: center; justify-content: flex-end; margin-bottom: 8px; }
   .sunset-badge { display: flex; align-items: center; gap: 8px; font-size: 22px; color: #2f6fb2; font-variant-numeric: tabular-nums; }
   .sunset-badge .moon { font-size: 26px; color: #2f6fb2; }
   .sunset-badge .t { font-weight: 800; color: #2f6fb2; }
@@ -507,10 +527,11 @@
   /* Cases à cocher : onglets affichés */
   .tabtoggles { display: flex; flex-direction: column; gap: 4px; }
   .tabtoggle {
-    display: flex; align-items: center; gap: 13px; padding: 12px 6px; cursor: pointer; user-select: none;
-    border-radius: 10px;
+    display: flex; align-items: center; gap: 13px; padding: 12px 6px;
+    cursor: pointer; user-select: none; border-radius: 12px; position: relative;
+    background: transparent; touch-action: pan-y;
+    transition: background 0.15s, box-shadow 0.15s;
   }
-  .tabtoggle:active { background: var(--digit-bg); }
   .tabtoggle .box {
     width: 26px; height: 26px; flex-shrink: 0; border: 2px solid var(--muted); border-radius: 8px;
     display: flex; align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s;
@@ -518,8 +539,19 @@
   .tabtoggle .box svg { width: 16px; height: 16px; opacity: 0; transform: scale(0.5); transition: opacity 0.15s, transform 0.15s; color: var(--paper); }
   .tabtoggle.on .box { background: var(--accent); border-color: var(--accent); }
   .tabtoggle.on .box svg { opacity: 1; transform: scale(1); }
-  .tabtoggle .lab { font-size: 17px; font-weight: 600; }
-  .tabtoggle.locked { opacity: 0.45; pointer-events: none; }
+  .tabtoggle .lab { font-size: 17px; font-weight: 600; flex: 1; }
+  .tabtoggle.locked .box { opacity: 0.45; }
+  .tabtoggle .grip {
+    width: 24px; height: 24px; flex-shrink: 0; color: var(--muted); opacity: 0.6;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tabtoggle .grip svg { width: 20px; height: 20px; }
+  .tabtoggle.lifted {
+    background: var(--card); box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+    z-index: 5; border-radius: 12px;
+  }
+  .tabtoggle.armed { background: var(--digit-bg); border-radius: 12px; }
+  .setting-hint { font-size: 16px; color: var(--muted); margin-top: 8px; line-height: 1.4; }
 
   .help-list { list-style: none; padding: 0; margin: 0; }
   .help-list li { position: relative; padding: 0 0 14px 22px; font-size: 16px; line-height: 1.5; color: var(--ink); }
@@ -540,6 +572,7 @@
 
       <!-- ======================= ONGLET HDV ======================= -->
       <section class="tab" data-tab="hdv">
+        <div class="tab-header"><h1>Heures de vol</h1><div class="today" id="today"></div></div>
         <div class="pad">
 
           <div class="section sec-dep foldable folded" data-fold>
@@ -611,6 +644,7 @@
 
       <!-- ==================== ONGLET CHECKLIST ==================== -->
       <section class="tab" data-tab="checklist">
+        <div class="tab-header"><h1>Checklist</h1></div>
         <div class="pad">
           <div class="cl-toolbar">
             <button class="btn-reset" id="clReset">Réinitialiser</button>
@@ -621,11 +655,11 @@
 
       <!-- ===================== ONGLET MÉTÉO ===================== -->
       <section class="tab" data-tab="meteo">
+        <div class="tab-header">
+          <h1>Météo</h1>
+          <div class="sunset-badge"><span class="moon">☾</span><span class="t" id="sunsetT">--:--</span></div>
+        </div>
         <div class="pad">
-          <div class="meteo-top">
-            <div class="sunset-badge"><span class="moon">☾</span><span class="t" id="sunsetT">--:--</span></div>
-          </div>
-
           <div class="picker" id="picker"></div>
           <div class="station" id="station">Localisation…</div>
 
@@ -712,8 +746,9 @@
 
       <div class="modal-pane on" data-mpane="settings">
         <div class="setting">
-          <div class="setting-label">Onglets affichés</div>
+          <div class="setting-label">Onglets</div>
           <div class="tabtoggles" id="tabToggles"></div>
+          <div class="setting-hint">Toucher pour afficher ou masquer. Appui long puis glisser pour changer l'ordre.</div>
         </div>
 
         <div class="setting">
@@ -938,12 +973,25 @@ const FONT_STACKS = {
   mono: 'ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace',
   seg: "'DSEG7', monospace"
 };
-// Définition des onglets (ordre = ordre d'affichage)
-const TABS = [
-  { id: 'hdv',       label: 'Heures de vol' },
-  { id: 'checklist', label: 'Checklist' },
-  { id: 'meteo',     label: 'Météo' }
-];
+// Catalogue des onglets (l'ordre d'affichage est piloté par settings.order)
+const TAB_DEFS = {
+  hdv:       { id: 'hdv',       label: 'Heures de vol' },
+  checklist: { id: 'checklist', label: 'Checklist' },
+  meteo:     { id: 'meteo',     label: 'Météo' }
+};
+const DEFAULT_ORDER = ['hdv', 'checklist', 'meteo'];
+
+// Renvoie les définitions d'onglets dans l'ordre choisi par l'utilisateur,
+// en réparant toute liste incomplète ou corrompue.
+function orderedTabs() {
+  const seen = new Set();
+  const list = [];
+  (settings.order || []).forEach(id => {
+    if (TAB_DEFS[id] && !seen.has(id)) { seen.add(id); list.push(TAB_DEFS[id]); }
+  });
+  DEFAULT_ORDER.forEach(id => { if (!seen.has(id)) { seen.add(id); list.push(TAB_DEFS[id]); } });
+  return list;
+}
 
 function loadSettings() {
   const raw = load(SETTINGS_KEY);
@@ -957,7 +1005,9 @@ const settings = {
   palette: savedS.palette || 'foret',
   font:    savedS.font    || 'system',
   // onglets visibles : objet id -> bool (par défaut tous visibles)
-  tabs: Object.assign({ hdv: true, checklist: true, meteo: true }, savedS.tabs || {})
+  tabs: Object.assign({ hdv: true, checklist: true, meteo: true }, savedS.tabs || {}),
+  // ordre d'affichage des onglets (liste d'ids)
+  order: Array.isArray(savedS.order) ? savedS.order.slice() : DEFAULT_ORDER.slice()
 };
 
 /* =====================================================================
@@ -971,13 +1021,17 @@ let visibleTabs = [];   // liste des ids visibles, dans l'ordre
 let current = 0;        // index dans visibleTabs
 
 function rebuildTabs() {
-  visibleTabs = TABS.filter(t => settings.tabs[t.id]).map(t => t.id);
-  if (visibleTabs.length === 0) { visibleTabs = ['hdv']; settings.tabs.hdv = true; }
+  // Onglet actuellement affiché, mémorisé par son id (l'ordre peut changer)
+  const currentId = visibleTabs[current];
 
-  // Affiche / masque les panneaux
-  TABS.forEach(t => {
+  const ordered = orderedTabs();
+  visibleTabs = ordered.filter(t => settings.tabs[t.id]).map(t => t.id);
+  if (visibleTabs.length === 0) { visibleTabs = [ordered[0].id]; settings.tabs[ordered[0].id] = true; }
+
+  // Réordonne physiquement les panneaux dans la piste + affiche/masque
+  ordered.forEach(t => {
     const panel = track.querySelector(`.tab[data-tab="${t.id}"]`);
-    if (panel) panel.hidden = !settings.tabs[t.id];
+    if (panel) { track.appendChild(panel); panel.hidden = !settings.tabs[t.id]; }
   });
 
   // Reconstruit les traits
@@ -989,10 +1043,13 @@ function rebuildTabs() {
     tabbar.appendChild(tick);
   });
 
-  // Largeur de piste = 100% par onglet ; on borne l'index courant
+  // Largeur de piste = 100% par onglet
   track.style.width = (visibleTabs.length * 100) + '%';
   track.querySelectorAll('.tab').forEach(p => { p.style.flexBasis = (100 / visibleTabs.length) + '%'; });
-  if (current >= visibleTabs.length) current = visibleTabs.length - 1;
+
+  // Reste sur le même onglet si possible, sinon on borne l'index
+  const keepIdx = visibleTabs.indexOf(currentId);
+  current = keepIdx >= 0 ? keepIdx : Math.min(current, visibleTabs.length - 1);
   goTo(current, true);
 }
 
@@ -1054,27 +1111,105 @@ function goTo(i, instant) {
   window.addEventListener('mouseup', e => { if (dragging) onEnd(e.clientX); });
 })();
 
-/* ---- Cases à cocher : onglets affichés ---- */
+/* ---- Réglage « Onglets » : tap = afficher/masquer, appui long = déplacer ---- */
+const GRIP_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/></svg>';
+const LONG_PRESS_MS = 350;
+
 function buildTabToggles() {
   const wrap = document.getElementById('tabToggles');
   wrap.innerHTML = '';
-  TABS.forEach(t => {
+  orderedTabs().forEach(t => {
     const on = !!settings.tabs[t.id];
-    const visibleCount = TABS.filter(x => settings.tabs[x.id]).length;
+    const visibleCount = orderedTabs().filter(x => settings.tabs[x.id]).length;
     const locked = on && visibleCount <= 1;   // interdit de tout masquer
     const row = document.createElement('div');
     row.className = 'tabtoggle' + (on ? ' on' : '') + (locked ? ' locked' : '');
-    row.innerHTML = '<div class="box">' + CHECK_SVG + '</div><div class="lab">' + t.label + '</div>';
-    row.addEventListener('click', () => {
-      const count = TABS.filter(x => settings.tabs[x.id]).length;
-      if (settings.tabs[t.id] && count <= 1) return;  // garde au moins un onglet
-      settings.tabs[t.id] = !settings.tabs[t.id];
-      saveSettings();
-      rebuildTabs();
-      buildTabToggles();
-    });
+    row.dataset.id = t.id;
+    row.innerHTML = '<div class="box">' + CHECK_SVG + '</div>'
+      + '<div class="lab">' + t.label + '</div>'
+      + '<div class="grip">' + GRIP_SVG + '</div>';
+    attachToggleRow(row, t.id);
     wrap.appendChild(row);
   });
+}
+
+// Gère un même geste : tap (toggle visibilité) OU appui long puis glissement (réordonner)
+function attachToggleRow(row, id) {
+  let pressTimer = null, dragging = false, moved = false;
+  let startY = 0, rowH = 0;
+  const wrap = document.getElementById('tabToggles');
+
+  function cleanup() {
+    clearTimeout(pressTimer); pressTimer = null;
+    row.classList.remove('lifted', 'armed');
+    row.style.transform = '';
+    dragging = false;
+  }
+
+  function toggleVisibility() {
+    const count = orderedTabs().filter(x => settings.tabs[x.id]).length;
+    if (settings.tabs[id] && count <= 1) return;  // garde au moins un onglet
+    settings.tabs[id] = !settings.tabs[id];
+    saveSettings(); rebuildTabs(); buildTabToggles();
+  }
+
+  function startDrag() {
+    dragging = true;
+    row.classList.remove('armed');
+    row.classList.add('lifted');
+    rowH = row.offsetHeight + 4;   // hauteur d'une ligne + gap
+    if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) {} }
+  }
+
+  function onStart(y) {
+    moved = false;
+    startY = y;
+    row.classList.add('armed');
+    pressTimer = setTimeout(startDrag, LONG_PRESS_MS);
+  }
+  function onMove(y, e) {
+    const dy = y - startY;
+    if (!dragging) {
+      // avant appui long : un mouvement franc annule (ni tap ni drag)
+      if (Math.abs(dy) > 8) { moved = true; cleanup(); }
+      return;
+    }
+    if (e && e.cancelable) e.preventDefault();
+    // La ligne suit le doigt en continu
+    row.style.transform = `translateY(${dy}px)`;
+    // Si le déplacement dépasse une demi-hauteur de ligne, on permute avec la voisine
+    if (rowH > 0) {
+      if (dy < -rowH / 2) {
+        const prev = row.previousElementSibling;
+        if (prev) { wrap.insertBefore(row, prev); startY -= rowH; row.style.transform = `translateY(${y - startY}px)`; }
+      } else if (dy > rowH / 2) {
+        const next = row.nextElementSibling;
+        if (next) { wrap.insertBefore(next, row); startY += rowH; row.style.transform = `translateY(${y - startY}px)`; }
+      }
+    }
+  }
+  function onEnd() {
+    if (dragging) {
+      // Fige le nouvel ordre
+      settings.order = [...wrap.children].map(r => r.dataset.id);
+      saveSettings(); rebuildTabs();
+      cleanup(); buildTabToggles();
+      return;
+    }
+    clearTimeout(pressTimer); pressTimer = null;
+    row.classList.remove('armed');
+    if (!moved) toggleVisibility();   // simple tap
+  }
+
+  row.addEventListener('touchstart', e => onStart(e.touches[0].clientY), { passive: true });
+  row.addEventListener('touchmove', e => onMove(e.touches[0].clientY, e), { passive: false });
+  row.addEventListener('touchend', onEnd);
+  row.addEventListener('touchcancel', cleanup);
+
+  // Souris (desktop) : mousedown long = drag, clic simple = toggle
+  row.addEventListener('mousedown', e => { onStart(e.clientY); });
+  window.addEventListener('mousemove', e => { if (pressTimer || dragging) onMove(e.clientY, e); });
+  window.addEventListener('mouseup', () => { if (pressTimer !== null || dragging) onEnd(); });
 }
 
 /* ---- Application des réglages visuels ---- */
@@ -1120,6 +1255,12 @@ buildTabToggles();
    HDV — Heures de vol
    ===================================================================== */
 (function () {
+  /* ---- Date du jour ---- */
+  const todayEl = document.getElementById('today');
+  if (todayEl) todayEl.textContent = new Date().toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  });
+
   /* ---- Sections repliables (accordéon exclusif) ---- */
   const foldSections = [...document.querySelectorAll('[data-fold]')];
   foldSections.forEach(sec => {
