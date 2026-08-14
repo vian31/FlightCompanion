@@ -95,6 +95,28 @@
   }
   .picker .pill.active .pi, .picker .pill.active .pc { color: var(--paper); }
   .picker .pill.wait { opacity: 0.5; }
+  /* station aux données périmées : pastille rouge, texte barré */
+  .picker .pill.stale {
+    background: var(--red);
+    border-color: var(--red);
+  }
+  .picker .pill.stale .pi, .picker .pill.stale .pc {
+    color: #fff;
+    text-decoration: line-through;
+  }
+  .picker .pill.stale.active {
+    background: var(--red);
+    border-color: var(--red);
+  }
+  /* blocs de données périmées : contour pointillé, atténués */
+  .blocks.stale .block {
+    border-style: dashed;
+    border-color: var(--red);
+    opacity: 0.55;
+  }
+  .blocks.stale .block .big,
+  .blocks.stale .block .pair .v,
+  .blocks.stale .wind-readout { color: var(--red); }
   .station .icao { font-weight: 800; color: var(--accent); font-size: 18px; letter-spacing: 0.04em; }
   .station .city { color: var(--ink); }
   .station .age { display: block; font-size: 16px; opacity: 0.8; margin-top: 2px; }
@@ -142,7 +164,7 @@
     padding: 16px; display: flex; flex-direction: column; align-items: center;
     justify-content: center;
   }
-  .block.qnh, .block.temp { flex: 1; }
+  .block.qnh, .block.temp, .block.ceil, .block.vis { flex: 1; }
   .block .big {
     font-size: 34px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums;
     color: var(--ink);
@@ -229,6 +251,16 @@
         <div class="block wind load" id="blkWind">
           <svg class="rose" id="rose" viewBox="0 0 240 240"></svg>
           <div class="wind-readout" id="windReadout">—</div>
+        </div>
+      </div>
+      <div class="brow">
+        <div class="block ceil load" id="blkCeil">
+          <div class="big" id="ceilVal">—</div>
+          <div class="cap">Plafond</div>
+        </div>
+        <div class="block vis load" id="blkVis">
+          <div class="big" id="visVal">—</div>
+          <div class="cap">Visibilité</div>
         </div>
       </div>
     </div>
@@ -367,9 +399,42 @@ function renderWind(w){
 }
 baseRose('');
 
+// Plafond : plus basse couche BKN ou OVC (en centaines de pieds -> pieds).
+// Renvoie une chaîne d'affichage.
+function parseCeiling(d){
+  const clouds=Array.isArray(d.clouds)?d.clouds:[];
+  let ceil=null;
+  for(const c of clouds){
+    if((c.type==='BKN'||c.type==='OVC') && c.altitude!=null){
+      if(ceil==null || c.altitude<ceil) ceil=c.altitude;
+    }
+  }
+  if(ceil!=null) return (ceil*100).toLocaleString('fr-FR')+'<span class="u"> ft</span>';
+  // pas de plafond : ciel dégagé / few / sct
+  if(d.visibility && d.visibility.repr==='CAVOK') return 'CAVOK';
+  return 'NSC';   // No Significant Cloud / pas de plafond significatif
+}
+
+// Visibilité : gère CAVOK, 9999 (>=10 km), valeurs en mètres ou SM.
+function parseVis(d){
+  const v=d.visibility;
+  if(!v) return '—';
+  if(v.repr==='CAVOK') return 'CAVOK';
+  if(v.repr==='9999' || v.value===9999) return '≥10<span class="u"> km</span>';
+  if(v.value==null) return (v.repr||'—');
+  const unit=(d.units&&d.units.visibility)?d.units.visibility:'m';
+  if(unit==='m'){
+    if(v.value>=1000) return (v.value/1000).toLocaleString('fr-FR',{maximumFractionDigits:1})+'<span class="u"> km</span>';
+    return v.value+'<span class="u"> m</span>';
+  }
+  // sm (statute miles) ou autre
+  return v.value+'<span class="u"> '+unit+'</span>';
+}
+
 /* ---------- 5) MÉTÉO OBSERVÉE (AVWX, station la plus proche) ---------- */
 const blkQnh=document.getElementById('blkQnh'),blkTemp=document.getElementById('blkTemp'),blkWind=document.getElementById('blkWind');
-function setLoading(on){[blkQnh,blkTemp,blkWind].forEach(b=>b.classList.toggle('load',on));}
+const blkCeil=document.getElementById('blkCeil'),blkVis=document.getElementById('blkVis');
+function setLoading(on){[blkQnh,blkTemp,blkWind,blkCeil,blkVis].forEach(b=>b&&b.classList.toggle('load',on));}
 
 function altimToHpa(alt){if(!alt||alt.value==null)return null;let v=alt.value;if(v<100)v=v*33.8639;return Math.round(v);}
 function fmtAge(obsIso, refIso){
@@ -459,7 +524,16 @@ function showMetar(d){
   document.getElementById('tVal').textContent=(tv==null?'—':tv);
   document.getElementById('dVal').textContent=(dv==null?'—':dv);
 
+  document.getElementById('ceilVal').innerHTML=parseCeiling(d);
+  document.getElementById('visVal').innerHTML=parseVis(d);
+
   renderWind(parseWind(d));
+
+  // état périmé : marque les blocs (données en pointillé) et mémorise sur la station active
+  document.getElementById('blocks').classList.toggle('stale', !!stale);
+  if(activeIcao) staleByIcao[activeIcao]=!!stale;
+  renderPicker();
+
   setLoading(false);
 }
 
@@ -493,6 +567,7 @@ async function fetchNearest(lat,lon,n){
 // état des 3 stations et de leurs METAR
 let stations=[];        // [{icao, city}]
 let metars={};          // icao -> JSON METAR
+let staleByIcao={};     // icao -> true si données périmées
 let activeIcao=null;
 
 function renderPicker(){
@@ -500,7 +575,7 @@ function renderPicker(){
   p.innerHTML='';
   stations.forEach(st=>{
     const el=document.createElement('div');
-    el.className='pill'+(st.icao===activeIcao?' active':'')+(metars[st.icao]?'':' wait');
+    el.className='pill'+(st.icao===activeIcao?' active':'')+(metars[st.icao]?'':' wait')+(staleByIcao[st.icao]?' stale':'');
     el.innerHTML='<span class="pi">'+st.icao+'</span>'+(st.city?'<span class="pc">'+st.city+'</span>':'');
     el.addEventListener('click',()=>{
       activeIcao=st.icao;
