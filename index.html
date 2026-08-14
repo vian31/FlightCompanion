@@ -176,11 +176,12 @@
   .block .pair .one .lab { font-size: 16px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
   .block .pair .one .v { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px; }
 
-  .block.wind { width: 100%; padding: 18px 16px 20px; }
-  .rose { width: 220px; height: 220px; display: block; }
-  .wind-readout { margin-top: 10px; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center; }
-  .wind-readout .u2 { font-size: 16px; font-weight: 600; color: var(--muted); }
+  .block.wind { width: 100%; padding: 6px 16px 10px; }
+  .rose { width: 220px; height: 187px; display: block; margin: -4px 0; }
+  .wind-readout { margin-top: 4px; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: center; }
+  .wind-readout .u2 { font-size: 18px; font-weight: 600; color: var(--muted); }
   .wind-readout .gust { color: var(--red); }
+  .cavok { color: #2f8a3b; font-weight: 800; }
 
   .load .big, .load .pair, .load .rose { opacity: 0.4; }
 
@@ -249,7 +250,7 @@
       </div>
       <div class="brow">
         <div class="block wind load" id="blkWind">
-          <svg class="rose" id="rose" viewBox="0 0 240 240"></svg>
+          <svg class="rose" id="rose" viewBox="0 18 240 204"></svg>
           <div class="wind-readout" id="windReadout">—</div>
         </div>
       </div>
@@ -411,7 +412,7 @@ function parseCeiling(d){
   }
   if(ceil!=null) return (ceil*100).toLocaleString('fr-FR')+'<span class="u"> ft</span>';
   // pas de plafond : ciel dégagé / few / sct
-  if(d.visibility && d.visibility.repr==='CAVOK') return 'CAVOK';
+  if(d.visibility && d.visibility.repr==='CAVOK') return '<span class="cavok">CAVOK</span>';
   return 'NSC';   // No Significant Cloud / pas de plafond significatif
 }
 
@@ -419,7 +420,7 @@ function parseCeiling(d){
 function parseVis(d){
   const v=d.visibility;
   if(!v) return '—';
-  if(v.repr==='CAVOK') return 'CAVOK';
+  if(v.repr==='CAVOK') return '<span class="cavok">CAVOK</span>';
   if(v.repr==='9999' || v.value===9999) return '≥10<span class="u"> km</span>';
   if(v.value==null) return (v.repr||'—');
   const unit=(d.units&&d.units.visibility)?d.units.visibility:'m';
@@ -488,6 +489,17 @@ function parseWind(d){
   out.vrb=true; return out;
 }
 
+// Détecte des données périmées : warning AVWX de cache, ou observation > 3 h
+function isStale(d){
+  if(d && d.meta && d.meta.warning) return true;
+  const obsT=d&&d.time&&d.time.dt?Date.parse(d.time.dt):NaN;
+  const refT=d&&d.meta&&d.meta.timestamp?Date.parse(d.meta.timestamp):NaN;
+  if(!isNaN(obsT)&&!isNaN(refT)){
+    return Math.round((refT-obsT)/60000) > 180;
+  }
+  return false;
+}
+
 // Affiche un METAR déjà récupéré (objet JSON AVWX) dans les blocs
 function showMetar(d){
   const icao=d.station||'';
@@ -500,7 +512,7 @@ function showMetar(d){
   const obsT=d.time&&d.time.dt?Date.parse(d.time.dt):NaN;
   const refT=d.meta&&d.meta.timestamp?Date.parse(d.meta.timestamp):NaN;
   const ageMin=(!isNaN(obsT)&&!isNaN(refT))?Math.round((refT-obsT)/60000):null;
-  const stale = (d.meta&&d.meta.warning) || (ageMin!=null && ageMin>180);  // > 3 h
+  const stale = isStale(d);
 
   const fr = d.flight_rules || '';
   const frPill = fr ? '<span class="fr '+fr+'">'+fr+'</span>' : '';
@@ -600,6 +612,7 @@ async function loadStations(lat,lon){
       try{
         const d=await fetchOne(st.icao);
         metars[st.icao]=d;
+        staleByIcao[st.icao]=isStale(d);   // statut connu dès réception, pas au tap
         renderPicker();
         if(st.icao===activeIcao) showMetar(d);
       }catch(e){
