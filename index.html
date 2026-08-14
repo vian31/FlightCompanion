@@ -333,7 +333,18 @@ const blkQnh=document.getElementById('blkQnh'),blkTemp=document.getElementById('
 function setLoading(on){[blkQnh,blkTemp,blkWind].forEach(b=>b.classList.toggle('load',on));}
 
 function altimToHpa(alt){if(!alt||alt.value==null)return null;let v=alt.value;if(v<100)v=v*33.8639;return Math.round(v);}
-function fmtAge(iso){const t=Date.parse(iso);if(isNaN(t))return '';const min=Math.max(0,Math.round((Date.now()-t)/60000));if(min<1)return "à l'instant";if(min<60)return 'il y a '+min+' min';const h=Math.floor(min/60),m=min%60;return 'il y a '+h+' h '+String(m).padStart(2,'0');}
+function fmtAge(obsIso, refIso){
+  const t=Date.parse(obsIso);
+  if(isNaN(t))return '';
+  // référence = heure serveur AVWX (meta.timestamp) si dispo, sinon horloge locale
+  const ref = refIso ? Date.parse(refIso) : Date.now();
+  const base = isNaN(ref) ? Date.now() : ref;
+  const min=Math.max(0,Math.round((base-t)/60000));
+  if(min<1)return "à l'instant";
+  if(min<60)return 'il y a '+min+' min';
+  const h=Math.floor(min/60),m=min%60;
+  return 'il y a '+h+' h '+String(m).padStart(2,'0');
+}
 
 // Extrait le vent depuis le JSON AVWX en couvrant les formats du METAR
 function parseWind(d){
@@ -379,7 +390,7 @@ async function fetchMetar(lat,lon){
     const icao=d.station||'';
     let city='';
     if(d.info){ city=d.info.city||d.info.name||''; }
-    const age=fmtAge(d.time&&d.time.dt?d.time.dt:null);
+    const age=fmtAge(d.time&&d.time.dt?d.time.dt:null, d.meta&&d.meta.timestamp?d.meta.timestamp:null);
     const fr = d.flight_rules || '';
     const frPill = fr ? '<span class="fr '+fr+'">'+fr+'</span>' : '';
     document.getElementById('station').innerHTML =
