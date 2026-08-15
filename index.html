@@ -32,8 +32,6 @@
     --brief: #8a5a2b;
     --brief-soft: #f2e6d4;
     --red: #b23b2f;
-    --sec-dep-bg: #dfeadd; --sec-dep-border: #b9d0b4; --sec-dep-digit: #c8ddc2;
-    --sec-arr-bg: #dde6f0; --sec-arr-border: #b4c6df; --sec-arr-digit: #c6d6ea;
     --digit-bg: #efe9db;
   }
   [data-theme="dark"] {
@@ -47,8 +45,6 @@
     --brief: #cf9d63;
     --brief-soft: #2b2318;
     --red: #d9564a;
-    --sec-dep-bg: #182a1d; --sec-dep-border: #2f4a37; --sec-dep-digit: #213b2a;
-    --sec-arr-bg: #172230; --sec-arr-border: #2b3f5a; --sec-arr-digit: #203148;
     --digit-bg: #24211b;
   }
 
@@ -174,8 +170,6 @@
     padding: 18px 20px 22px;
     margin-bottom: 16px;
   }
-  .foldable { transition: padding-bottom 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
-  .foldable.folded { padding-bottom: 18px; }
   .section-title {
     font-size: 18px;
     letter-spacing: 0.1em;
@@ -184,65 +178,12 @@
     font-weight: 800;
     margin-bottom: 16px;
   }
-  .fold-head {
-    display: flex; align-items: center; justify-content: space-between;
-    cursor: pointer; user-select: none; margin-bottom: 16px;
-  }
-  .fold-head .fold-title { display: flex; align-items: center; gap: 10px; }
-  .fold-head .plane {
-    width: 26px; height: 26px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    color: var(--accent); font-size: 21px; line-height: 1;
-  }
-  .fold-head .plane::before { content: "\2708\FE0E"; display: block; }
-  /* ✈ pointe vers la droite par défaut : on l'incline en montée / descente */
-  .sec-dep .fold-head .plane::before { transform: rotate(-45deg); }
-  .sec-arr .fold-head .plane::before { transform: rotate(45deg); }
-  .fold-head .chevron {
-    font-size: 22px; line-height: 1;
-    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-    transform: translateY(-2px);
-  }
-  .fold-body {
-    display: grid; grid-template-rows: 1fr;
-    transition: grid-template-rows 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
-    opacity: 1;
-  }
-  .fold-body > .fold-inner { min-height: 0; overflow: hidden; }
-  .foldable.folded .fold-head { margin-bottom: 0; }
-  .foldable.folded .fold-head .chevron { transform: translateY(-2px) rotate(-90deg); }
-  .foldable.folded .fold-body { grid-template-rows: 0fr; opacity: 0; }
-
-  .field-label {
-    font-size: 16px; letter-spacing: 0.06em; text-transform: uppercase;
-    color: var(--muted); font-weight: 700; margin-bottom: 8px;
-  }
-  .field { margin-bottom: 18px; }
-  .field:last-child { margin-bottom: 0; }
-  .field-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-  .field-head .field-label { margin-bottom: 0; }
-  .now-btn {
-    font-size: 16px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700;
-    color: var(--accent); background: var(--accent-soft); border: none; border-radius: 8px;
-    padding: 6px 12px; cursor: pointer; transition: opacity 0.12s;
-  }
-  .now-btn:active { opacity: 0.6; }
-  .now-btn.icon-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    padding: 7px; border-radius: 50%; line-height: 0;
-  }
-  .now-btn.icon-btn .ico {
-    width: 35px; height: 35px; display: block; background: currentColor;
-    -webkit-mask: var(--clock) center / contain no-repeat;
-    mask: var(--clock) center / contain no-repeat;
-  }
-
   .digits { display: flex; align-items: center; justify-content: center; gap: 2px; }
   .digit {
-    position: relative; width: 48px; height: 132px; overflow: hidden;
-    background: var(--digit-bg); border-radius: 8px; touch-action: none; user-select: none;
-    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 42%, #000 58%, transparent);
-    mask-image: linear-gradient(to bottom, transparent, #000 42%, #000 58%, transparent);
+    position: relative; width: 40px; height: 78px; overflow: hidden;
+    background: var(--digit-bg); border-radius: 7px; touch-action: none; user-select: none;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 12%, #000 42%, #000 58%, transparent 88%);
+    mask-image: linear-gradient(to bottom, transparent 12%, #000 42%, #000 58%, transparent 88%);
   }
   .digit-track {
     position: absolute; left: 0; right: 0; top: 0; will-change: transform;
@@ -250,34 +191,49 @@
   }
   .digit-track.dragging { transition: none; }
   .digit-item {
-    height: 44px; line-height: 44px; text-align: center; font-size: 40px; font-weight: 700;
+    height: 26px; line-height: 26px; text-align: center; font-size: 13px; font-weight: 700;
     font-variant-numeric: tabular-nums; font-family: var(--digit-font);
-    color: var(--muted); opacity: 0.35;
+    color: var(--muted); opacity: 0.22;
     transition: color 0.15s, transform 0.15s, opacity 0.15s;
   }
-  .digit-item.sel { color: var(--ink); opacity: 1; transform: scale(1.1); }
+  .digit-item.sel { color: var(--ink); opacity: 1; font-size: 22px; }
   .digit-center {
-    position: absolute; left: 4px; right: 4px; top: 44px; height: 44px;
+    position: absolute; left: 3px; right: 3px; top: 26px; height: 26px;
     border-top: 1.5px solid var(--accent); border-bottom: 1.5px solid var(--accent);
-    pointer-events: none; opacity: 0.5;
+    pointer-events: none; opacity: 0.45;
   }
   .sep {
-    font-size: 40px; font-weight: 700; font-family: var(--digit-font);
+    font-size: 30px; font-weight: 700; font-family: var(--digit-font);
     color: var(--ink); padding: 0 1px; align-self: center;
   }
-  .sep.comma { transform: translateY(12px); }
-  .sep.hsep { font-size: 26px; font-weight: 600; color: var(--muted); padding: 0 3px; text-transform: lowercase; }
+  .sep.comma { transform: translateY(8px); }
+  .sep.hsep { font-size: 20px; font-weight: 600; color: var(--muted); padding: 0 3px; text-transform: lowercase; }
 
-  body.digit-seg .digit-item { font-size: 34px; }
+  body.digit-seg .digit-item.sel { font-size: 19px; }
   body.digit-seg .recap-box { font-size: 16px; }
   body.digit-seg .sep { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 
-  .sec-dep { background: var(--sec-dep-bg); border-color: var(--sec-dep-border); }
-  .sec-arr { background: var(--sec-arr-bg); border-color: var(--sec-arr-border); }
-  .sec-dep .digit { background: var(--sec-dep-digit); }
-  .sec-arr .digit { background: var(--sec-arr-digit); }
   .section.total { background: var(--accent); border-color: var(--accent); }
-  .section.total .section-title { color: #fff; margin-bottom: 18px; font-size: 20px; }
+  .section.total .section-title { color: #fff; margin-bottom: 0; font-size: 20px; }
+
+  /* En-tête cliquable du bloc Retour de vol */
+  .total-head {
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none;
+  }
+  .total-chevron {
+    color: #fff; font-size: 22px; line-height: 1; flex-shrink: 0;
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .section.total.folded .total-chevron { transform: translateY(-2px) rotate(-90deg); }
+  /* Corps animé (grille 0fr -> 1fr) */
+  .total-body {
+    display: grid; grid-template-rows: 1fr;
+    transition: grid-template-rows 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
+    opacity: 1; margin-top: 18px;
+  }
+  .total-body-inner { min-height: 0; overflow: hidden; }
+  .section.total.folded .total-body { grid-template-rows: 0fr; opacity: 0; margin-top: 0; }
 
   .recap-reason {
     display: none; font-size: 16px; font-weight: 800; letter-spacing: 0.02em;
@@ -313,20 +269,6 @@
     font-size: 23px; font-weight: 600; font-variant-numeric: tabular-nums; color: #fff;
     background: rgba(0,0,0,0.28); border-radius: 8px; padding: 5px 14px;
   }
-
-  /* Rangée Départ+Arrivée avec bouton reset latéral pleine hauteur */
-  .dep-arr-row { display: flex; align-items: stretch; gap: 12px; margin-bottom: 16px; }
-  .dep-arr-col { flex: 1; min-width: 0; }
-  .dep-arr-col .section { margin-bottom: 16px; }
-  .dep-arr-col .section:last-child { margin-bottom: 0; }
-  .reset-side {
-    flex: 0 0 48px; align-self: stretch; padding: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 40px; line-height: 1; font-weight: 400; font-family: inherit;
-    color: #c0392b; background: #e7dad8; border: 1.5px solid #ebc3bf;
-    border-radius: 16px; cursor: pointer; transition: background 0.15s, color 0.15s;
-  }
-  .reset-side:active { background: #c0392b; color: #fff; }
 
   /* =========================================================
      CHECKLIST
@@ -389,6 +331,42 @@
   .cl-item-label { font-size: 19px; font-weight: 600; }
   .cl-item-action { font-size: 17px; color: var(--muted); margin-top: 3px; letter-spacing: 0.02em; text-transform: uppercase; padding-left: 30px; }
   .cl-item.checked .cl-item-label { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line); }
+
+  /* ---- Items « actifs » : enregistrement d'heures dans la checklist ---- */
+  .cl-item.cl-active { display: block; padding: 15px 8px; cursor: default; }
+  .cl-item.cl-active .cl-active-head { display: flex; align-items: center; gap: 13px; }
+  .cl-item.cl-active .cl-checkbox { cursor: default; }
+  .cl-item.cl-active .cl-item-action { padding-left: 0; }
+  .cl-item.cl-active .cl-item-label { text-decoration: none; color: var(--ink); }
+  .cl-item.cl-active.checked .cl-item-label { color: var(--ink); }
+
+  /* Corps de l'item actif : roues ou bouton now + confirmation verte */
+  .cl-active-body { margin-top: 12px; padding-left: 37px; }
+  .cl-active-body .digits { justify-content: flex-start; }
+
+  /* Bouton « now » : icône horloge ronde, sur la ligne de l'action */
+  .cl-now-trailing { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: auto; }
+  .cl-now-time {
+    font-size: 19px; font-weight: 700; color: var(--accent);
+    font-variant-numeric: tabular-nums; min-width: 0;
+  }
+  .cl-item.cl-active-now:not(.checked) .cl-now-time { display: none; }
+  .cl-now-btn {
+    -webkit-appearance: none; appearance: none;
+    border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
+    width: 44px; height: 44px; padding: 0; border-radius: 50%;
+    cursor: pointer; user-select: none; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: transform 0.1s, background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .cl-now-btn:active { transform: scale(0.92); }
+  .cl-now-btn .cl-now-ico {
+    width: 22px; height: 22px; display: inline-block;
+    background: currentColor;
+    -webkit-mask: var(--clock) center/contain no-repeat;
+    mask: var(--clock) center/contain no-repeat;
+  }
+  .cl-item.cl-active.checked .cl-now-btn { background: var(--accent); border-color: var(--accent); color: #fff; }
 
   .briefing { border-top: 1px solid var(--line); padding: 14px 10px; }
   .cl-body-pad > .briefing:first-child { border-top: none; }
@@ -506,12 +484,31 @@
   .modal {
     width: 100%; max-width: 480px; background: var(--paper);
     border-top-left-radius: 22px; border-top-right-radius: 22px;
-    padding: 10px 22px calc(28px + env(safe-area-inset-bottom));
-    max-height: 85vh; overflow-y: auto; transform: translateY(100%);
+    padding: 6px 22px calc(28px + env(safe-area-inset-bottom));
+    max-height: 88vh; overflow-y: auto; transform: translateY(100%);
     transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .modal-overlay.on .modal { transform: translateY(0); }
-  .modal-grip { width: 40px; height: 4px; background: var(--muted); opacity: 0.4; border-radius: 2px; margin: 8px auto 18px; }
+  .modal.closing { transform: translateY(100%); }
+  /* En-tête de la popup : poignée (glisser/tap) + croix de fermeture */
+  .modal-head {
+    position: sticky; top: 0; z-index: 2; background: var(--paper);
+    display: flex; align-items: center; justify-content: center;
+    padding: 8px 0 12px; margin: 0 -22px 8px;
+  }
+  .modal-grip {
+    width: 44px; height: 5px; background: var(--muted); opacity: 0.4;
+    border-radius: 3px; cursor: grab; touch-action: none;
+  }
+  .modal-head.dragging .modal-grip { cursor: grabbing; }
+  .modal-close {
+    position: absolute; right: 16px; top: 4px;
+    width: 34px; height: 34px; border-radius: 50%; border: none;
+    background: var(--digit-bg); color: var(--ink); font-size: 18px; line-height: 1;
+    font-family: inherit; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .modal-close:active { transform: scale(0.92); background: var(--card-border); }
   .modal-tabs { display: flex; gap: 6px; background: var(--digit-bg); padding: 5px; border-radius: 12px; margin-bottom: 20px; }
   .modal-tab {
     flex: 1; padding: 11px 10px; font-size: 16px; font-weight: 700; font-family: inherit;
@@ -591,56 +588,23 @@
   <div class="viewport">
     <div class="track" id="track">
 
-      <!-- ======================= ONGLET HDV ======================= -->
-      <section class="tab" data-tab="hdv">
-        <div class="tab-header"><h1>Heures de vol</h1><div class="today" id="today"></div></div>
+      <!-- ==================== ONGLET CHECKLIST ==================== -->
+      <section class="tab" data-tab="checklist">
+        <div class="tab-header">
+          <h1>Checklist</h1>
+          <button class="btn-reset reset-round" id="clReset" aria-label="Réinitialiser">↻</button>
+        </div>
         <div class="pad pad-top">
+          <div id="checklist"></div>
 
-          <div class="dep-arr-row">
-            <button class="reset-side" id="resetEntries" aria-label="Réinitialiser">↻</button>
-            <div class="dep-arr-col">
-              <div class="section sec-dep foldable folded" data-fold>
-                <div class="section-title fold-head"><span class="fold-title"><span class="plane"></span>Départ</span><span class="chevron">⌄</span></div>
-                <div class="fold-body"><div class="fold-inner">
-                  <div class="field">
-                    <div class="field-head">
-                      <div class="field-label">Bloc</div>
-                      <button class="now-btn icon-btn" data-now="bloc-dep" aria-label="Maintenant"><span class="ico"></span></button>
-                    </div>
-                    <div class="digits" data-field="bloc-dep"></div>
-                  </div>
-                  <div class="field">
-                    <div class="field-label">Horamètre</div>
-                    <div class="digits" data-field="hora-dep"></div>
-                  </div>
-                </div></div>
-              </div>
-
-              <div class="section sec-arr foldable folded" data-fold>
-                <div class="section-title fold-head"><span class="fold-title"><span class="plane"></span>Arrivée</span><span class="chevron">⌄</span></div>
-                <div class="fold-body"><div class="fold-inner">
-                  <div class="field">
-                    <div class="field-head">
-                      <div class="field-label">Bloc</div>
-                      <button class="now-btn icon-btn" data-now="bloc-arr" aria-label="Maintenant"><span class="ico"></span></button>
-                    </div>
-                    <div class="digits" data-field="bloc-arr"></div>
-                  </div>
-                  <div class="field">
-                    <div class="field-head">
-                      <div class="field-label">Horamètre</div>
-                      <button class="now-btn" data-copy="hora">Copier départ</button>
-                    </div>
-                    <div class="digits" data-field="hora-arr"></div>
-                  </div>
-                </div></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="section total" id="totalSection">
+          <!-- Retour de vol (récap horamètre / temps de vol) — repliable -->
+          <div class="section total folded" id="totalSection">
             <div class="recap-reason" id="totalReason"></div>
-            <div class="section-title">Retour de vol</div>
+            <div class="total-head" id="totalHead">
+              <div class="section-title">Retour de vol</div>
+              <div class="total-chevron">⌄</div>
+            </div>
+            <div class="total-body"><div class="total-body-inner">
 
             <div class="recap-block">
               <div class="recap-title">Vol (heure locale)</div>
@@ -662,18 +626,9 @@
               <div class="recap-tdv"><span class="recap-tdv-key">Horaire</span><span class="recap-tdv-val"><span id="recapTdvMin">0 min</span> · <span id="recapTdvHM">00 h 00</span></span></div>
               <div class="recap-tdv"><span class="recap-tdv-key">Décimal</span><span class="recap-tdv-val"><span id="recapTdvDec">0,00</span> h</span></div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      <!-- ==================== ONGLET CHECKLIST ==================== -->
-      <section class="tab" data-tab="checklist">
-        <div class="tab-header">
-          <h1>Checklist</h1>
-          <button class="btn-reset reset-round" id="clReset" aria-label="Réinitialiser">↻</button>
-        </div>
-        <div class="pad pad-top">
-          <div id="checklist"></div>
+            </div></div>
+          </div>
         </div>
       </section>
 
@@ -761,7 +716,10 @@
   <!-- ==================== POPUP PARAMÈTRES ==================== -->
   <div class="modal-overlay" id="settingsModal">
     <div class="modal">
-      <div class="modal-grip"></div>
+      <div class="modal-head">
+        <div class="modal-grip" id="modalGrip"></div>
+        <button class="modal-close" id="modalClose" aria-label="Fermer">✕</button>
+      </div>
 
       <div class="modal-tabs">
         <button class="modal-tab on" data-mtab="settings">Paramètres</button>
@@ -805,17 +763,18 @@
       </div>
 
       <div class="modal-pane" data-mpane="help">
-        <div class="help-sub">Heures de vol</div>
+        <div class="help-sub">Checklist &amp; heures de vol</div>
         <ul class="help-list">
-          <li>Les champs du bloc RÉCAP sont similaires à ceux de la page Retour de Vol d'Aérogest.</li>
-          <li>Cliquer sur l'horloge à droite de « BLOC » pour saisir l'heure courante.</li>
-          <li>Dans le bloc ARRIVÉE, cliquer sur « Copier départ » pour recopier l'horamètre de départ.</li>
-          <li>Message d'erreur si le total des heures BLOC est supérieur à l'horamètre, ou si une valeur manque.</li>
+          <li>Les items « Horamètre » et « Bloc » enregistrent directement les heures de vol.</li>
+          <li>Horamètre : régler les roues ; l'item se valide (heure verte) dès la première roue touchée.</li>
+          <li>Bloc : toucher « Maintenant » pour enregistrer l'heure courante.</li>
+          <li>L'horamètre de départ est recopié vers l'arrivée dès que sa section est complète.</li>
+          <li>Le bloc « Retour de vol » en bas récapitule le temps de vol et signale les incohérences.</li>
         </ul>
-        <div class="help-sub">Checklist &amp; Météo</div>
+        <div class="help-sub">Général &amp; Météo</div>
         <ul class="help-list">
           <li>Glisser horizontalement ou toucher les traits en haut pour changer d'onglet.</li>
-          <li>Choisir les onglets visibles dans « Onglets affichés » ci-dessus.</li>
+          <li>Choisir les onglets visibles dans « Onglets » ci-dessus.</li>
           <li>Météo : les stations silencieuses ou périmées sont automatiquement écartées.</li>
           <li>Pour un usage plein écran et hors réseau, ajouter la page à l'écran d'accueil.</li>
         </ul>
@@ -828,13 +787,14 @@
   <script type="text/plain" id="checklist-data">
 # Avant mise en route
 Caches Pitot + Statique = à bord
-Horamètre = Noté
+Horamètre Départ = Noté
 Feux = Nav + Anti-collision
 
 # Avant roulage
+ATIS = Noté
 Paramètres moteur = Vérifiés
 Transpondeur = 7000, ON
-Heure bloc = Notée
+Bloc Départ = Noté
 
 # Briefings
 > Briefing décollage
@@ -876,7 +836,7 @@ Tel = LOC + SDVFR
 Manche à air = Vérifiée
 Paramètres moteur = Vérifiés
 
-# Arrivée sur un terrain
+# Approchant terrain
 Fiche terrain = Affichée
 ATIS = Noté
 Altimètre = Réglé
@@ -885,9 +845,9 @@ SIV = Quitté si besoin
 Radio = Fréquence tour ou A/A
 
 # Au parking
-Heure bloc = Notée
+Bloc Arrivée = Noté
 Robinet carburant = Coupé
-Horamètre = Noté
+Horamètre Arrivée = Noté
 Caches Pitot = En place
   </script>
 
@@ -895,7 +855,7 @@ Caches Pitot = En place
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "2.0";
+const APP_VERSION = "2.3";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* =====================================================================
@@ -1000,11 +960,10 @@ const FONT_STACKS = {
 };
 // Catalogue des onglets (l'ordre d'affichage est piloté par settings.order)
 const TAB_DEFS = {
-  hdv:       { id: 'hdv',       label: 'Heures de vol' },
   checklist: { id: 'checklist', label: 'Checklist' },
   meteo:     { id: 'meteo',     label: 'Météo' }
 };
-const DEFAULT_ORDER = ['hdv', 'checklist', 'meteo'];
+const DEFAULT_ORDER = ['checklist', 'meteo'];
 
 // Renvoie les définitions d'onglets dans l'ordre choisi par l'utilisateur,
 // en réparant toute liste incomplète ou corrompue.
@@ -1030,7 +989,7 @@ const settings = {
   palette: savedS.palette || 'foret',
   font:    savedS.font    || 'system',
   // onglets visibles : objet id -> bool (par défaut tous visibles)
-  tabs: Object.assign({ hdv: true, checklist: true, meteo: true }, savedS.tabs || {}),
+  tabs: Object.assign({ checklist: true, meteo: true }, savedS.tabs || {}),
   // ordre d'affichage des onglets (liste d'ids)
   order: Array.isArray(savedS.order) ? savedS.order.slice() : DEFAULT_ORDER.slice()
 };
@@ -1168,6 +1127,8 @@ function buildTabToggles() {
 function attachToggleRow(row, id) {
   let pressTimer = null, dragging = false, moved = false;
   let startY = 0, rowH = 0;
+  let usingTouch = false;   // vrai pendant/juste après un geste tactile
+  let touchGuardUntil = 0;  // ignore la souris simulée avant cette date
   const wrap = document.getElementById('tabToggles');
 
   function cleanup() {
@@ -1232,15 +1193,29 @@ function attachToggleRow(row, id) {
     if (!moved) toggleVisibility();   // simple tap
   }
 
-  row.addEventListener('touchstart', e => onStart(e.touches[0].clientY), { passive: true });
+  // --- Tactile ---
+  row.addEventListener('touchstart', e => { usingTouch = true; onStart(e.touches[0].clientY); }, { passive: true });
   row.addEventListener('touchmove', e => onMove(e.touches[0].clientY, e), { passive: false });
-  row.addEventListener('touchend', onEnd);
+  row.addEventListener('touchend', e => {
+    touchGuardUntil = Date.now() + 700;   // neutralise la souris simulée qui suit
+    if (e && e.cancelable) e.preventDefault();
+    onEnd();
+  });
   row.addEventListener('touchcancel', cleanup);
 
-  // Souris (desktop) : mousedown long = drag, clic simple = toggle
-  row.addEventListener('mousedown', e => { onStart(e.clientY); });
-  window.addEventListener('mousemove', e => { if (pressTimer || dragging) onMove(e.clientY, e); });
-  window.addEventListener('mouseup', () => { if (pressTimer !== null || dragging) onEnd(); });
+  // --- Souris (desktop) : ignorée si un tactile vient d'avoir lieu ---
+  row.addEventListener('mousedown', e => {
+    if (usingTouch || Date.now() < touchGuardUntil) return;
+    onStart(e.clientY);
+  });
+  window.addEventListener('mousemove', e => {
+    if (usingTouch) return;
+    if (pressTimer || dragging) onMove(e.clientY, e);
+  });
+  window.addEventListener('mouseup', () => {
+    if (usingTouch) { usingTouch = false; return; }
+    if (pressTimer !== null || dragging) onEnd();
+  });
 }
 
 /* ---- Application des réglages visuels ---- */
@@ -1267,8 +1242,51 @@ document.querySelectorAll('[data-setting]').forEach(group => {
 
 /* ---- Popup ---- */
 const settingsModal = document.getElementById('settingsModal');
-document.getElementById('openSettings').addEventListener('click', () => settingsModal.classList.add('on'));
-settingsModal.addEventListener('click', e => { if (e.target === settingsModal) settingsModal.classList.remove('on'); });
+const modalPanel = settingsModal.querySelector('.modal');
+function openModal() { settingsModal.classList.add('on'); }
+function closeModal() { settingsModal.classList.remove('on'); }
+document.getElementById('openSettings').addEventListener('click', openModal);
+document.getElementById('modalClose').addEventListener('click', closeModal);
+settingsModal.addEventListener('click', e => { if (e.target === settingsModal) closeModal(); });
+
+// Poignée : tap = fermer, glissement vers le bas = fermer
+(function () {
+  const head = settingsModal.querySelector('.modal-head');
+  const grip = document.getElementById('modalGrip');
+  let startY = 0, dy = 0, dragging = false, moved = false;
+
+  function onStart(y) { startY = y; dy = 0; dragging = true; moved = false; head.classList.add('dragging'); }
+  function onMove(y, e) {
+    if (!dragging) return;
+    dy = y - startY;
+    if (Math.abs(dy) > 4) moved = true;
+    if (dy > 0) {
+      if (e && e.cancelable) e.preventDefault();
+      modalPanel.style.transition = 'none';
+      modalPanel.style.transform = `translateY(${dy}px)`;
+    }
+  }
+  function onEnd() {
+    if (!dragging) return;
+    dragging = false; head.classList.remove('dragging');
+    modalPanel.style.transition = '';
+    modalPanel.style.transform = '';
+    if (!moved) { closeModal(); return; }          // simple tap sur la poignée
+    if (dy > 90) closeModal();                       // glissé assez bas → fermer
+  }
+
+  grip.addEventListener('touchstart', e => onStart(e.touches[0].clientY), { passive: true });
+  grip.addEventListener('touchmove', e => onMove(e.touches[0].clientY, e), { passive: false });
+  grip.addEventListener('touchend', onEnd);
+  grip.addEventListener('touchcancel', onEnd);
+  grip.addEventListener('mousedown', e => { onStart(e.clientY); e.preventDefault(); });
+  window.addEventListener('mousemove', e => { if (dragging) onMove(e.clientY, e); });
+  window.addEventListener('mouseup', () => { if (dragging) onEnd(); });
+})();
+
+// Fermeture au bouton retour Android / touche Échap
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && settingsModal.classList.contains('on')) closeModal(); });
+
 document.querySelectorAll('.modal-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     const name = tab.dataset.mtab;
@@ -1285,25 +1303,9 @@ buildTabToggles();
 /* =====================================================================
    HDV — Heures de vol
    ===================================================================== */
-(function () {
-  /* ---- Date du jour ---- */
-  const todayEl = document.getElementById('today');
-  if (todayEl) todayEl.textContent = new Date().toLocaleDateString('fr-FR', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-  });
-
-  /* ---- Sections repliables (accordéon exclusif) ---- */
-  const foldSections = [...document.querySelectorAll('[data-fold]')];
-  foldSections.forEach(sec => {
-    sec.querySelector('.fold-head').addEventListener('click', () => {
-      const willOpen = sec.classList.contains('folded');
-      if (willOpen) { foldSections.forEach(s => s.classList.add('folded')); sec.classList.remove('folded'); }
-      else sec.classList.add('folded');
-    });
-  });
-
+const HDV = (function () {
   /* ---- Roue verticale réutilisable ---- */
-  const ITEM_H = 44, VIS_CENTER = 1;
+  const ITEM_H = 26, VIS_CENTER = 1;
   function makeWheel(wheelEl, values, startIndex, onChange) {
     let index = startIndex, offsetY = 0, startYW = 0, dragW = false, baseOffset = 0;
     const trackEl = document.createElement('div'); trackEl.className = 'digit-track';
@@ -1374,11 +1376,82 @@ buildTabToggles();
   const blocConfig = [{ max: 2 }, { max: 9 }, { sep: 'h' }, { max: 5 }, { max: 9 }];
   const horaConfig = [{ max: 9 }, { max: 9 }, { max: 9 }, { max: 9 }, { sep: ',' }, { max: 9 }, { max: 9 }];
 
+  // fields : name -> élément .digits (avec _wheels/_set/_digits/_onChange)
   const fields = {};
-  document.querySelectorAll('[data-field]').forEach(el => {
-    const isBloc = el.dataset.field.startsWith('bloc');
+
+  /* ---- Récap « Retour de vol » (éléments résolus paresseusement) ---- */
+  const $ = id => document.getElementById(id);
+  const ZERO_BLOC = [0, 0, 0, 0];
+  const ZERO_HORA = [0, 0, 0, 0, 0, 0];
+
+  const blocToMin = d => (d[0]*10 + d[1]) * 60 + (d[2]*10 + d[3]);
+  const horaToCent = d => (d[0]*1000 + d[1]*100 + d[2]*10 + d[3]) * 100 + (d[4]*10 + d[5]);
+  const pad2 = n => String(n).padStart(2, '0');
+  function todayStr() { const d = new Date(); return pad2(d.getDate()) + '/' + pad2(d.getMonth()+1) + '/' + d.getFullYear(); }
+  const blocStr = d => `${d[0]}${d[1]}:${d[2]}${d[3]}`;
+  const horaStr = d => `${d[0]}${d[1]}${d[2]}${d[3]},${d[4]}${d[5]}`;
+
+  // Renvoie les chiffres d'un champ, ou des zéros si le champ n'est pas (encore) monté.
+  function digitsOf(name, zeros) { return fields[name] ? fields[name]._digits() : zeros.slice(); }
+
+  function recompute() {
+    const depBloc = digitsOf('bloc-dep', ZERO_BLOC);
+    const arrBloc = digitsOf('bloc-arr', ZERO_BLOC);
+    const depHora = digitsOf('hora-dep', ZERO_HORA);
+    const arrHora = digitsOf('hora-arr', ZERO_HORA);
+
+    const dj = todayStr();
+    const setTxt = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+    setTxt('recapDepDT', `${dj} - ${blocStr(depBloc)}`);
+    setTxt('recapArrDT', `${dj} - ${blocStr(arrBloc)}`);
+    setTxt('recapHoraDep', horaStr(depHora));
+    setTxt('recapHoraArr', horaStr(arrHora));
+
+    let diff = blocToMin(arrBloc) - blocToMin(depBloc);
+    if (diff < 0) diff += 24 * 60;
+    const hh = Math.floor(diff / 60), mm = diff % 60;
+    setTxt('recapTdvMin', diff + ' min');
+    setTxt('recapTdvHM', pad2(hh) + ' h ' + pad2(mm));
+    setTxt('recapTdvDec', (diff / 60).toFixed(2).replace('.', ','));
+
+    let dc = horaToCent(arrHora) - horaToCent(depHora);
+    if (dc < 0) dc = 0;
+    const totMin = Math.round(Math.floor(dc / 100) * 60 + (dc % 100) * 60 / 100);
+    // Alerte : temps de vol (bloc) supérieur à ce que montre l'horamètre.
+    // On exige seulement qu'il y ait du temps bloc ; le cas « horamètre non
+    // noté » (totMin = 0 alors que le bloc tourne) doit justement alerter.
+    const tooLong = diff > 0 && diff > totMin;
+    const reason = tooLong ? "Temps de vol supérieur à l'horamètre" : '';
+    const totalReasonEl = $('totalReason');
+    if (totalReasonEl) {
+      totalReasonEl.textContent = reason;
+      totalReasonEl.classList.toggle('show', reason !== '');
+    }
+  }
+
+  /* ---- Persistance des saisies ---- */
+  const ENTRIES_KEY = 'hdv-entries';
+  function saveEntries() {
+    const raw = load(ENTRIES_KEY);
+    let data = {};
+    if (raw) { try { data = JSON.parse(raw) || {}; } catch (e) { data = {}; } }
+    Object.keys(fields).forEach(k => { data[k] = fields[k]._digits(); });
+    store(ENTRIES_KEY, JSON.stringify(data));
+  }
+  function savedDigits(name) {
+    const raw = load(ENTRIES_KEY); if (!raw) return null;
+    let data; try { data = JSON.parse(raw); } catch (e) { return null; }
+    return (data && Array.isArray(data[name])) ? data[name] : null;
+  }
+
+  /* ---- Construction d'un champ (roues) dans un conteneur ---- */
+  // fieldName ∈ {bloc-dep, bloc-arr, hora-dep, hora-arr}
+  // onChange(digits) : rappel externe (ex. cocher l'item checklist)
+  function createField(el, fieldName, onChange) {
+    const isBloc = fieldName.startsWith('bloc');
     buildField(el, isBloc ? blocConfig : horaConfig);
-    fields[el.dataset.field] = el;
+    fields[fieldName] = el;
+
     if (isBloc) {
       const [tens, units] = el._wheels;
       const applyCap = () => {
@@ -1389,88 +1462,55 @@ buildTabToggles();
       const prevSet = el._set;
       el._set = arr => { prevSet(arr); applyCap(); };
     }
-  });
 
-  /* ---- Calcul du récapitulatif ---- */
-  const $ = id => document.getElementById(id);
-  const recapDepDT = $('recapDepDT'), recapArrDT = $('recapArrDT');
-  const recapHoraDep = $('recapHoraDep'), recapHoraArr = $('recapHoraArr');
-  const recapTdvMin = $('recapTdvMin'), recapTdvHM = $('recapTdvHM'), recapTdvDec = $('recapTdvDec');
-  const totalReasonEl = $('totalReason');
+    let suppress = false;
+    el._onChange = () => {
+      recompute();
+      saveEntries();
+      if (onChange && !suppress) onChange(el._digits());
+    };
+    // Règle la valeur sans déclencher la validation externe (préchargement).
+    el._setSilent = arr => { suppress = true; el._set(arr); suppress = false; };
 
-  const blocToMin = d => (d[0]*10 + d[1]) * 60 + (d[2]*10 + d[3]);
-  const horaToCent = d => (d[0]*1000 + d[1]*100 + d[2]*10 + d[3]) * 100 + (d[4]*10 + d[5]);
-  const pad2 = n => String(n).padStart(2, '0');
-  function todayStr() { const d = new Date(); return pad2(d.getDate()) + '/' + pad2(d.getMonth()+1) + '/' + d.getFullYear(); }
-  const blocStr = d => `${d[0]}${d[1]}:${d[2]}${d[3]}`;
-  const horaStr = d => `${d[0]}${d[1]}${d[2]}${d[3]},${d[4]}${d[5]}`;
-
-  function recompute() {
-    const depBloc = fields['bloc-dep']._digits();
-    const arrBloc = fields['bloc-arr']._digits();
-    const depHora = fields['hora-dep']._digits();
-    const arrHora = fields['hora-arr']._digits();
-
-    const dj = todayStr();
-    recapDepDT.textContent = `${dj} - ${blocStr(depBloc)}`;
-    recapArrDT.textContent = `${dj} - ${blocStr(arrBloc)}`;
-    recapHoraDep.textContent = horaStr(depHora);
-    recapHoraArr.textContent = horaStr(arrHora);
-
-    let diff = blocToMin(arrBloc) - blocToMin(depBloc);
-    if (diff < 0) diff += 24 * 60;
-    const hh = Math.floor(diff / 60), mm = diff % 60;
-    recapTdvMin.textContent = diff + ' min';
-    recapTdvHM.textContent = pad2(hh) + ' h ' + pad2(mm);
-    recapTdvDec.textContent = (diff / 60).toFixed(2).replace('.', ',');
-
-    let dc = horaToCent(arrHora) - horaToCent(depHora);
-    if (dc < 0) dc = 0;
-    const totMin = Math.round(Math.floor(dc / 100) * 60 + (dc % 100) * 60 / 100);
-    const oneZero = (diff === 0) !== (totMin === 0);
-    const tooLong = diff > totMin && !oneZero;
-    let reason = '';
-    if (oneZero) reason = 'Saisie incomplète';
-    else if (tooLong) reason = "Temps de vol supérieur à l'horamètre";
-    totalReasonEl.textContent = reason;
-    totalReasonEl.classList.toggle('show', reason !== '');
+    // Restaure une valeur éventuellement mémorisée pour ce champ,
+    // sans déclencher le rappel externe (pas de validation auto au chargement).
+    const saved = savedDigits(fieldName);
+    if (saved) el._setSilent(saved);
+    return el;
   }
 
-  /* ---- Persistance des saisies ---- */
-  const ENTRIES_KEY = 'hdv-entries';
-  function saveEntries() {
-    const data = {};
-    Object.keys(fields).forEach(k => { data[k] = fields[k]._digits(); });
-    store(ENTRIES_KEY, JSON.stringify(data));
+  /* ---- Actions publiques ---- */
+  function setNow(fieldName) {
+    if (!fields[fieldName]) return null;
+    const d = new Date(), h = d.getHours(), m = d.getMinutes();
+    const digits = [Math.floor(h/10), h%10, Math.floor(m/10), m%10];
+    fields[fieldName]._set(digits);
+    return digits;
   }
-  function loadEntries() {
-    const raw = load(ENTRIES_KEY); if (!raw) return;
-    let data; try { data = JSON.parse(raw); } catch (e) { return; }
-    Object.keys(fields).forEach(k => { if (Array.isArray(data[k])) fields[k]._set(data[k]); });
+  function copyHoraDepToArr() {
+    if (!fields['hora-dep'] || !fields['hora-arr']) return null;
+    const d = fields['hora-dep']._digits();
+    // Préchargement : on remplit les roues sans valider l'item hora-arr.
+    (fields['hora-arr']._setSilent || fields['hora-arr']._set)(d);
+    return d;
+  }
+  function getDigits(fieldName) { return fields[fieldName] ? fields[fieldName]._digits() : null; }
+  function isBlank(fieldName) {
+    const d = getDigits(fieldName);
+    return !d || d.every(x => x === 0);
+  }
+  function resetAll() {
+    Object.values(fields).forEach(el => {
+      const zeros = el._digits().map(() => 0);
+      (el._setSilent || el._set)(zeros);
+    });
+    drop(ENTRIES_KEY);
+    recompute();
   }
 
-  Object.values(fields).forEach(el => { el._onChange = () => { recompute(); saveEntries(); }; });
-  loadEntries();
   recompute();
 
-  document.querySelectorAll('[data-now]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const d = new Date(), h = d.getHours(), m = d.getMinutes();
-      fields[btn.dataset.now]._set([Math.floor(h/10), h%10, Math.floor(m/10), m%10]);
-    });
-  });
-  document.querySelectorAll('[data-copy]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const base = btn.dataset.copy;
-      fields[base + '-arr']._set(fields[base + '-dep']._digits());
-    });
-  });
-  document.getElementById('resetEntries').addEventListener('click', () => {
-    Object.values(fields).forEach(el => el._set(el._digits().map(() => 0)));
-    drop(ENTRIES_KEY);
-    foldSections.forEach(s => s.classList.add('folded'));
-    recompute();
-  });
+  return { createField, setNow, copyHoraDepToArr, getDigits, isBlank, resetAll, recompute };
 })();
 
 
@@ -1537,7 +1577,41 @@ buildTabToggles();
 
   const container = document.getElementById('checklist');
 
+  /* =========================================================
+     ITEMS ACTIFS — enregistrement d'heures dans la checklist
+     ---------------------------------------------------------
+     Table de correspondance : libellé (normalisé) -> champ HDV.
+     La détection se fait sur le libellé mis en minuscules et
+     sans accents ; robuste aux petites variantes de casse.
+     Pour renommer un libellé dans les données checklist, adapte
+     simplement la clé ci-dessous.
+     kind : 'wheels' = roues 4+2 · 'now' = bouton heure courante
+     ========================================================= */
+  const NORM = s => s.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ').trim();
+
+  const ACTIVE_MAP = {
+    'horametre depart': { field: 'hora-dep', kind: 'wheels' },
+    'bloc depart':      { field: 'bloc-dep', kind: 'now' },
+    'bloc arrivee':     { field: 'bloc-arr', kind: 'now' },
+    'horametre arrivee':{ field: 'hora-arr', kind: 'wheels' }
+  };
+  function activeSpec(label) { return ACTIVE_MAP[NORM(label)] || null; }
+
+  const NOW_ICO = '<span class="cl-now-ico"></span>';
+
+  // Formatage d'affichage de l'heure enregistrée (bloc) / horamètre.
+  function fmtBloc(d) { return `${d[0]}${d[1]}:${d[2]}${d[3]}`; }
+  function fmtHora(d) { return `${d[0]}${d[1]}${d[2]}${d[3]},${d[4]}${d[5]}`; }
+  function fmtValue(field, d) { return field.startsWith('bloc') ? fmtBloc(d) : fmtHora(d); }
+
+  // Index (si, ii) de l'item hora-dep, pour déclencher la copie
+  // vers hora-arr quand SA section devient complète.
+  let horaDepLoc = null;
+
   function build() {
+    building = true;
     container.innerHTML = '';
     CHECKLIST.forEach((sec, si) => {
       const section = document.createElement('div');
@@ -1577,14 +1651,19 @@ buildTabToggles();
       if (hasItems) {
         sec.items.forEach((it, ii) => {
           const key = si + '-' + ii;
-          const row = document.createElement('div');
-          row.className = 'cl-item' + (state[key] ? ' checked' : '');
-          row.dataset.key = key;
-          row.innerHTML = '<div class="cl-checkbox">' + CHECK_SVG + '</div>'
-            + '<div class="cl-item-text"><div class="cl-item-label">' + it.label + '</div>'
-            + '<div class="cl-item-action">' + it.action + '</div></div>';
-          row.addEventListener('click', () => toggle(key, si));
-          pad.appendChild(row);
+          const spec = activeSpec(it.label);
+          if (spec) {
+            pad.appendChild(buildActiveItem(key, si, it, spec));
+          } else {
+            const row = document.createElement('div');
+            row.className = 'cl-item' + (state[key] ? ' checked' : '');
+            row.dataset.key = key;
+            row.innerHTML = '<div class="cl-checkbox">' + CHECK_SVG + '</div>'
+              + '<div class="cl-item-text"><div class="cl-item-label">' + it.label + '</div>'
+              + '<div class="cl-item-action">' + it.action + '</div></div>';
+            row.addEventListener('click', () => toggle(key, si));
+            pad.appendChild(row);
+          }
         });
       }
       if (Array.isArray(sec.briefings)) {
@@ -1598,6 +1677,88 @@ buildTabToggles();
       container.appendChild(section);
       refreshSection(si);
     });
+    building = false;
+  }
+
+  // Construit un item actif (roues ou bouton now) + confirmation verte.
+  function buildActiveItem(key, si, it, spec) {
+    if (spec.field === 'hora-dep') horaDepLoc = { si, key };
+
+    const row = document.createElement('div');
+    row.className = 'cl-item cl-active' + (state[key] ? ' checked' : '');
+    row.dataset.key = key;
+    row.dataset.field = spec.field;
+
+    const head = document.createElement('div');
+    head.className = 'cl-active-head';
+    head.innerHTML = '<div class="cl-checkbox">' + CHECK_SVG + '</div>'
+      + '<div class="cl-item-text"><div class="cl-item-label">' + it.label + '</div>'
+      + '<div class="cl-item-action">' + it.action + '</div></div>';
+    row.appendChild(head);
+
+    if (spec.kind === 'wheels') {
+      const body = document.createElement('div');
+      body.className = 'cl-active-body';
+      const digitsEl = document.createElement('div');
+      digitsEl.className = 'digits';
+      body.appendChild(digitsEl);
+      row.appendChild(body);
+
+      // Monte les roues ; se valide dès que l'utilisateur règle une roue.
+      // Les compteurs affichent déjà la valeur : pas de rappel « verte ».
+      HDV.createField(digitsEl, spec.field, () => {
+        markRecorded(key, si);
+      });
+    } else { // now — bouton icône sur la ligne de l'action
+      row.classList.add('cl-active-now');
+
+      // Bouton icône (horloge) placé à droite, dans l'en-tête.
+      const btn = document.createElement('button');
+      btn.className = 'cl-now-btn';
+      btn.type = 'button';
+      btn.setAttribute('aria-label', 'Enregistrer l\u2019heure courante');
+      btn.innerHTML = NOW_ICO;
+
+      // Heure enregistrée affichée en vert, à côté du bouton (dans l'en-tête).
+      const inlineRec = document.createElement('span');
+      inlineRec.className = 'cl-now-time';
+
+      const trailing = document.createElement('div');
+      trailing.className = 'cl-now-trailing';
+      trailing.appendChild(inlineRec);
+      trailing.appendChild(btn);
+      head.appendChild(trailing);
+
+      // Champ « bloc » caché : porte la valeur (heure) pour le récap et
+      // la persistance ; seul le bouton l'écrit.
+      const hidden = document.createElement('div');
+      hidden.className = 'digits';
+      hidden.style.display = 'none';
+      row.appendChild(hidden);
+
+      HDV.createField(hidden, spec.field, null);
+
+      const syncTime = () => {
+        const d = HDV.getDigits(spec.field);
+        if (d) inlineRec.textContent = fmtValue(spec.field, d);
+      };
+
+      btn.addEventListener('click', () => {
+        HDV.setNow(spec.field);
+        syncTime();
+        markRecorded(key, si);
+      });
+      syncTime();
+    }
+    return row;
+  }
+
+  // Marque un item actif comme enregistré (coché vert) et met à jour la section.
+  function markRecorded(key, si) {
+    if (!state[key]) { state[key] = true; saveState(); }
+    const row = container.querySelector('.cl-item[data-key="' + key + '"]');
+    if (row) row.classList.add('checked');
+    refreshSection(si);
   }
 
   function toggle(key, si) {
@@ -1607,9 +1768,13 @@ buildTabToggles();
     const row = container.querySelector('.cl-item[data-key="' + key + '"]');
     row.classList.toggle('checked', !!state[key]);
     refreshSection(si);
-    const section = container.querySelector('.cl-section[data-si="' + si + '"]');
-    if (section.classList.contains('complete')) section.classList.remove('open');
   }
+
+  // Mémorise l'état « complet » précédent de chaque section pour ne
+  // déclencher qu'au passage incomplet -> complet (copie + repli).
+  const wasComplete = {};
+  const FOLD_DELAY = 1000; // ms — laisse le temps de lire l'heure enregistrée
+  let building = false;     // vrai pendant build() : pas d'effets de bord au chargement
 
   function refreshSection(si) {
     const sec = CHECKLIST[si];
@@ -1618,17 +1783,53 @@ buildTabToggles();
     const total = sec.items.length; let done = 0;
     sec.items.forEach((_, ii) => { if (state[si + '-' + ii]) done++; });
     section.querySelector('.cl-count').textContent = done + '/' + total;
-    section.classList.toggle('complete', done === total);
+    const complete = (done === total);
+    section.classList.toggle('complete', complete);
+
+    // Au chargement, on enregistre l'état sans déclencher copie ni repli.
+    if (building) { wasComplete[si] = complete; return; }
+
+    const justCompleted = complete && !wasComplete[si];
+
+    // Copie horamètre départ -> arrivée quand la section de hora-dep
+    // vient de devenir complète (pré-affichage sur les roues d'arrivée).
+    if (justCompleted && horaDepLoc && si === horaDepLoc.si) {
+      HDV.copyHoraDepToArr();
+    }
+
+    // Repli automatique de la section quand elle vient d'être complétée,
+    // avec une temporisation pour lire l'heure qui vient de s'afficher.
+    if (justCompleted && section.classList.contains('open')) {
+      setTimeout(() => {
+        // Ne replie que si toujours complète et encore ouverte.
+        if (section.classList.contains('complete') && section.classList.contains('open')) {
+          section.classList.remove('open');
+        }
+      }, FOLD_DELAY);
+    }
+
+    wasComplete[si] = complete;
   }
 
   document.getElementById('clReset').addEventListener('click', () => {
     state = {}; saveState();
-    container.querySelectorAll('.cl-item.checked').forEach(r => r.classList.remove('checked'));
-    container.querySelectorAll('.cl-section.open').forEach(s => s.classList.remove('open'));
-    CHECKLIST.forEach((_, si) => refreshSection(si));
+    HDV.resetAll();                 // remet les heures/horamètres à zéro
+    Object.keys(wasComplete).forEach(k => delete wasComplete[k]);
+    build();                        // reconstruit (roues remises à zéro, vert effacé)
     const scroller = container.closest('.tab');
     if (scroller) scroller.scrollTo({ top: 0, behavior: 'smooth' });
   });
+
+  /* ---- Repli du bloc « Retour de vol » (replié par défaut) ---- */
+  (function () {
+    const totalSection = document.getElementById('totalSection');
+    const totalHead = document.getElementById('totalHead');
+    if (totalSection && totalHead) {
+      totalHead.addEventListener('click', () => {
+        totalSection.classList.toggle('folded');
+      });
+    }
+  })();
 
   build();
 })();
@@ -1672,8 +1873,20 @@ renderSunset(MURET.lat, MURET.lon);
 /* ---- Rose des vents ---- */
 const rose = document.getElementById('rose');
 const CX = 120, CY = 120, R = 92, F_FULL = 20;
+function runwaySvg(hdg) {
+  const L = R * 2/3;
+  const dx = L*Math.sin(hdg*rad), dy = -L*Math.cos(hdg*rad);
+  const ax = CX+dx, ay = CY+dy, bx = CX-dx, by = CY-dy;
+  const px = Math.cos(hdg*rad), py = Math.sin(hdg*rad), w = 4;
+  let s = '';
+  s += '<line x1="'+ax.toFixed(1)+'" y1="'+ay.toFixed(1)+'" x2="'+bx.toFixed(1)+'" y2="'+by.toFixed(1)+'" stroke="#c3ccb8" stroke-width="'+(w*2)+'" stroke-linecap="butt" opacity="0.45"/>';
+  s += '<line x1="'+(ax+px*w).toFixed(1)+'" y1="'+(ay+py*w).toFixed(1)+'" x2="'+(bx+px*w).toFixed(1)+'" y2="'+(by+py*w).toFixed(1)+'" stroke="#b9c2ad" stroke-width="1" opacity="0.5"/>';
+  s += '<line x1="'+(ax-px*w).toFixed(1)+'" y1="'+(ay-py*w).toFixed(1)+'" x2="'+(bx-px*w).toFixed(1)+'" y2="'+(by-py*w).toFixed(1)+'" stroke="#b9c2ad" stroke-width="1" opacity="0.5"/>';
+  return s;
+}
 function baseRose(extra, noDot) {
   let s = '';
+  s += runwaySvg(120);
   s += '<circle cx="120" cy="120" r="92" fill="none" stroke="#e3ead9" stroke-width="2"/>';
   s += '<circle cx="120" cy="120" r="46" fill="none" stroke="#eee6d6" stroke-width="1"/>';
   for (let a = 0; a < 360; a += 10) { const major = (a%30===0); const r1 = major?80:86, r2 = 92;
@@ -1685,8 +1898,17 @@ function baseRose(extra, noDot) {
   if (!noDot) s += '<circle cx="120" cy="120" r="4" fill="#3b5c47"/>';
   rose.innerHTML = s;
 }
+function windColor(force) {
+  // vert vent faible -> rouge à 16 kt et au-delà
+  const t = Math.max(0, Math.min(1, force / 16));
+  let h, s, l;
+  if (t < 0.5) { h = 130 - (130-45)*(t/0.5); s = 45; l = 38; }        // vert -> orangé
+  else { h = 45 - 45*((t-0.5)/0.5); s = 45 + 25*((t-0.5)/0.5); l = 42; } // orangé -> rouge
+  return 'hsl('+h.toFixed(0)+','+s.toFixed(0)+'%,'+l.toFixed(0)+'%)';
+}
 function arrowSvg(dirFrom, force) {
-  const tt = Math.max(0, Math.min(1, force / F_FULL)); const rr = 24 + tt*(R-24);
+  const col = windColor(force);
+  const tt = Math.max(0, Math.min(1, force / F_FULL)); const rr = tt*R; // 10 kt -> cercle interne (46), 20 kt -> cercle externe (92)
   const tail = { x: CX+rr*Math.sin(dirFrom*rad), y: CY-rr*Math.cos(dirFrom*rad) };
   const head = { x: CX+10*Math.sin(dirFrom*rad), y: CY-10*Math.cos(dirFrom*rad) };
   const ah = 13, aw = 7; const dx = head.x-tail.x, dy = head.y-tail.y; const len = Math.hypot(dx,dy)||1;
@@ -1694,8 +1916,8 @@ function arrowSvg(dirFrom, force) {
   const base = { x: head.x-ah*ux, y: head.y-ah*uy };
   const p1 = { x: base.x+aw*px, y: base.y+aw*py }, p2 = { x: base.x-aw*px, y: base.y-aw*py };
   let s = '';
-  s += '<line x1="'+tail.x.toFixed(1)+'" y1="'+tail.y.toFixed(1)+'" x2="'+base.x.toFixed(1)+'" y2="'+base.y.toFixed(1)+'" stroke="#3b5c47" stroke-width="4.5" stroke-linecap="round"/>';
-  s += '<polygon points="'+head.x.toFixed(1)+','+head.y.toFixed(1)+' '+p1.x.toFixed(1)+','+p1.y.toFixed(1)+' '+p2.x.toFixed(1)+','+p2.y.toFixed(1)+'" fill="#3b5c47"/>';
+  s += '<line x1="'+tail.x.toFixed(1)+'" y1="'+tail.y.toFixed(1)+'" x2="'+base.x.toFixed(1)+'" y2="'+base.y.toFixed(1)+'" stroke="'+col+'" stroke-width="4.5" stroke-linecap="round"/>';
+  s += '<polygon points="'+head.x.toFixed(1)+','+head.y.toFixed(1)+' '+p1.x.toFixed(1)+','+p1.y.toFixed(1)+' '+p2.x.toFixed(1)+','+p2.y.toFixed(1)+'" fill="'+col+'"/>';
   return s;
 }
 function sectorSvg(a1, a2) {
