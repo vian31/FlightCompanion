@@ -398,6 +398,20 @@
   .picker .pill.active { background: var(--accent); border-color: var(--accent); }
   .picker .pill.active .pi, .picker .pill.active .pc { color: var(--paper); }
   .picker .pill.wait { opacity: 0.5; }
+  /* Pastille manuelle : fond légèrement différencié */
+  .picker .pill.manual { background: var(--accent-soft); border-style: dashed; }
+  .picker .pill.manual.active { background: var(--accent); border-style: solid; }
+  .picker .pill .pi.add { color: var(--accent); font-size: 20px; }
+  .picker .pill .pi.dim { color: var(--muted); opacity: 0.6; letter-spacing: 0.1em; }
+  .picker .pill.err { background: rgba(178,59,47,0.12); border-color: var(--red); }
+  .picker .pill.err .pi { color: var(--red); }
+  .picker .pill.editing { padding: 0; }
+  .picker .pill .icao-in {
+    width: 100%; border: none; background: transparent; outline: none;
+    text-align: center; font-family: inherit; font-size: 16px; font-weight: 800;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent);
+    padding: 8px 4px;
+  }
   .station .icao { font-weight: 800; color: var(--accent); font-size: 18px; letter-spacing: 0.04em; }
   .station .city { color: var(--ink); }
   .station .age { display: block; font-size: 16px; opacity: 0.8; margin-top: 2px; }
@@ -457,17 +471,34 @@
   textarea.note:focus { border-color: var(--accent); }
 
   /* =========================================================
-     BARRE BASSE + FOOTER (version)
+     BOUTON PARAMÈTRES FLOTTANT + FOOTER (version)
      ========================================================= */
-  .bottombar { display: flex; justify-content: flex-end; padding: 6px 0; }
-  .settings-btn {
+  .settings-fab {
+    position: fixed; z-index: 40;
+    right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
     width: 44px; height: 44px; padding: 0; font-family: inherit;
-    color: var(--muted); background: transparent; border: 1px solid var(--line);
-    border-radius: 50%; cursor: pointer;
+    color: var(--muted); background: var(--paper);
+    border: 1px solid var(--line); border-radius: 50%; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.14);
   }
-  .settings-btn svg { width: 22px; height: 22px; }
-  .settings-btn:active { opacity: 0.6; }
+  .settings-fab svg { width: 22px; height: 22px; }
+  .settings-fab:active { opacity: 0.7; }
+
+  /* Indicateur pull-to-refresh (flèche ronde) */
+  .ptr-ind {
+    position: absolute; top: 0; left: 50%; z-index: 5;
+    transform: translateX(-50%) translateY(-40px);
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--card); border: 1px solid var(--line);
+    color: var(--accent); opacity: 0;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    pointer-events: none;
+  }
+  .ptr-ind svg { width: 20px; height: 20px; }
+  .ptr-ind.spin svg { animation: ptrspin 0.7s linear infinite; }
+  @keyframes ptrspin { to { transform: rotate(360deg); } }
   footer.appfoot {
     flex-shrink: 0; text-align: center; font-size: 12px; color: var(--muted);
     padding: 6px 0 calc(6px + env(safe-area-inset-bottom)); letter-spacing: 0.04em;
@@ -635,6 +666,9 @@
 
       <!-- ===================== ONGLET MÉTÉO ===================== -->
       <section class="tab" data-tab="meteo">
+        <div class="ptr-ind" id="ptrInd" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
+        </div>
         <div class="tab-header">
           <h1>Météo</h1>
           <div class="sunset-badge"><span class="moon">☾</span><span class="t" id="sunsetT">--:--</span></div>
@@ -705,12 +739,8 @@
     </div>
   </div>
 
-  <!-- Barre basse commune -->
-  <div style="padding:0 18px 6px;flex-shrink:0">
-    <div class="bottombar">
-      <button class="settings-btn" id="openSettings" aria-label="Paramètres · Aide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
-    </div>
-  </div>
+  <!-- Bouton paramètres flottant (hors flux, ne masque pas les données) -->
+  <button class="settings-fab" id="openSettings" aria-label="Paramètres · Aide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
 
   <footer class="appfoot" id="appVersion"></footer>
 
@@ -2072,92 +2102,260 @@ async function fetchNearest(lat, lon, n) {
   }).filter(x => x.icao);
 }
 
-/* ---- État : uniquement les stations VALIDES (données fraîches) ---- */
-const NEAR_N = 8;      // on interroge large
-const KEEP = 3;        // on garde jusqu'à 3 stations valides
-let valid = [];        // [{icao, city, metar}] triées par proximité
-let activeIcao = null;
+/* =====================================================================
+   MODÈLE PASTILLES : 3 slots fixes
+     slot 0, 1 : stations automatiques (2 plus proches qui répondent)
+     slot 2    : station manuelle (saisie ICAO), indépendante de la géoloc
+   ===================================================================== */
+const NEAR_N = 8;        // on interroge large côté AVWX
+const AUTO_KEEP = 2;     // 2 pastilles automatiques
+let autoSlots = [null, null];   // chaque slot : null | { icao, city, metar }
+let manualSlot = null;          // null | { icao, city, metar } | { error:true }
+let activeIcao = null;          // ICAO de la station affichée
+let loadToken = 0;              // jeton anti-course (invalide les chargements obsolètes)
+
+// Message d'état affiché SOUS les pastilles (zone #station)
+function setStationMsg(txt) { document.getElementById('station').textContent = txt; }
+
+// Renvoie la liste ordonnée des slots [{slot, kind, data}] pour le rendu
+function allSlots() {
+  return [
+    { i: 0, kind: 'auto', data: autoSlots[0] },
+    { i: 1, kind: 'auto', data: autoSlots[1] },
+    { i: 2, kind: 'manual', data: manualSlot },
+  ];
+}
+
+function selectIcao(icao) {
+  const found = allSlots().find(s => s.data && !s.data.error && s.data.icao === icao);
+  if (!found) return;
+  activeIcao = icao;
+  renderPicker();
+  showMetar(found.data.metar);
+}
 
 function renderPicker() {
   const p = document.getElementById('picker');
   p.innerHTML = '';
-  if (valid.length <= 1) { p.style.display = 'none'; return; }
   p.style.display = 'flex';
-  valid.forEach(st => {
+  allSlots().forEach(slot => {
     const el = document.createElement('div');
-    el.className = 'pill' + (st.icao===activeIcao ? ' active' : '');
-    el.innerHTML = '<span class="pi">'+st.icao+'</span>' + (st.city ? '<span class="pc">'+st.city+'</span>' : '');
-    el.addEventListener('click', () => {
-      activeIcao = st.icao; renderPicker();
-      const m = valid.find(v => v.icao===activeIcao);
-      if (m && m.metar) showMetar(m.metar);
-    });
+    const d = slot.data;
+    let cls = 'pill';
+    if (slot.kind === 'manual') cls += ' manual';
+    if (d && !d.error && d.icao === activeIcao) cls += ' active';
+    if (d && d.error) cls += ' err';
+    el.className = cls;
+
+    if (d && !d.error) {
+      el.innerHTML = '<span class="pi">'+d.icao+'</span>' + (d.city ? '<span class="pc">'+d.city+'</span>' : '');
+    } else if (d && d.error) {
+      el.innerHTML = '<span class="pi">????</span>';
+    } else if (slot.kind === 'manual') {
+      el.innerHTML = '<span class="pi add">+</span>';
+    } else {
+      el.innerHTML = '<span class="pi dim">----</span>';
+    }
+
+    if (slot.kind === 'manual') wireManualPill(el);
+    else if (d && !d.error) el.addEventListener('click', () => selectIcao(d.icao));
+
     p.appendChild(el);
   });
 }
 
+/* ---- Chargement des 2 stations automatiques (jeton anti-course) ---- */
 async function loadStations(lat, lon) {
+  const token = ++loadToken;
   setLoading(true);
-  document.getElementById('station').textContent = 'Stations proches…';
+  setStationMsg('Stations proches…');
+
   let near;
   try { near = await fetchNearest(lat, lon, NEAR_N); }
   catch (e) {
-    if (e.auth) { document.getElementById('station').textContent = 'Clé refusée'; clearKey(); refreshKeybox(); }
-    else document.getElementById('station').textContent = 'Réseau indisponible ('+e.message+')';
+    if (token !== loadToken) return;
+    if (e.auth) { setStationMsg('Clé refusée'); clearKey(); refreshKeybox(); }
+    else setStationMsg('Réseau indisponible ('+e.message+')');
     setLoading(false); return;
   }
-  if (near.length === 0) { document.getElementById('station').textContent = 'Aucune station à proximité'; setLoading(false); return; }
+  if (token !== loadToken) return;
 
-  document.getElementById('station').textContent = 'Lecture METAR…';
-  valid = []; activeIcao = null;
-  let firstShown = false, authFailed = false;
+  if (near.length === 0) { setStationMsg('Aucune station à proximité'); setLoading(false); return; }
 
-  // Teste les stations dans l'ordre de proximité ; garde les valides jusqu'à KEEP.
+  setStationMsg('Lecture METAR…');
+  const found = [];
+  const seen = new Set();
+
   for (const st of near) {
-    if (valid.length >= KEEP) break;
+    if (found.length >= AUTO_KEEP) break;
+    if (seen.has(st.icao)) continue;      // dédup par ICAO
+    seen.add(st.icao);
     let d;
     try { d = await fetchOne(st.icao); }
-    catch (e) { if (e.auth) { authFailed = true; break; } continue; }
-    if (isStale(d)) continue;                 // silencieuse / périmée → on saute
-    valid.push({ icao: st.icao, city: st.city, metar: d });
-    // Affiche la première valide (= la plus proche OK) immédiatement
-    if (!firstShown) {
-      firstShown = true; activeIcao = st.icao;
-      renderPicker(); showMetar(d);
-    } else {
-      renderPicker();
+    catch (e) { if (e.auth) { if (token===loadToken){ setStationMsg('Clé refusée'); clearKey(); refreshKeybox(); setLoading(false);} return; } continue; }
+    if (token !== loadToken) return;      // un chargement plus récent a pris la main
+    if (isStale(d)) continue;
+    found.push({ icao: st.icao, city: st.city, metar: d });
+    autoSlots = [found[0] || null, found[1] || null];
+    // Affiche la 1re station trouvée si rien n'est encore sélectionné
+    if (activeIcao == null || !slotHasIcao(activeIcao)) {
+      activeIcao = found[0].icao; showMetar(found[0].metar);
     }
+    renderPicker();
   }
 
-  if (authFailed) { document.getElementById('station').textContent = 'Clé refusée'; clearKey(); refreshKeybox(); setLoading(false); return; }
-  if (!firstShown) { document.getElementById('station').textContent = 'Aucune station active à proximité'; setLoading(false); return; }
+  if (token !== loadToken) return;
+
+  if (found.length === 0) {
+    autoSlots = [null, null];
+    renderPicker();
+    setStationMsg('Aucune station active à proximité');
+  } else {
+    setStationMsg('');
+  }
+  setLoading(false);
+}
+
+function slotHasIcao(icao) {
+  return allSlots().some(s => s.data && !s.data.error && s.data.icao === icao);
+}
+
+/* ---- Échec géolocalisation : message ciblé, pastilles auto en "----" ---- */
+function onGeoError(err) {
+  autoSlots = [null, null];
+  // Ne pas écraser la sélection si l'utilisateur a déjà une station manuelle affichée
+  if (!(manualSlot && !manualSlot.error && manualSlot.icao === activeIcao)) {
+    activeIcao = null;
+  }
+  renderPicker();
+  const code = err && err.code;
+  if (code === 1) setStationMsg("Vérifier l'autorisation d'accès au GPS");
+  else setStationMsg('Position indisponible, activez le GPS');
+  setLoading(false);
+}
+
+/* ---- Pastille manuelle : saisie ICAO ---- */
+function wireManualPill(el) {
+  // Rempli & non actif : simple tap = sélection ; double-tap = ré-édition.
+  // Vide : simple tap = édition directe.
+  let tapTimer = null;
+  const filled = manualSlot && !manualSlot.error;
+
+  el.addEventListener('click', () => {
+    if (editingManual) return;
+    if (!filled) { openManualEditor(el); return; }
+    // rempli : distinguer simple / double tap
+    if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; openManualEditor(el); return; }
+    tapTimer = setTimeout(() => { tapTimer = null; selectIcao(manualSlot.icao); }, 260);
+  });
+}
+
+let editingManual = false;
+function openManualEditor(el) {
+  editingManual = true;
+  el.className = 'pill manual editing';
+  el.innerHTML = '<input class="icao-in" maxlength="4" inputmode="latin" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ICAO">';
+  const inp = el.querySelector('input');
+  inp.focus();
+
+  const finish = () => { editingManual = false; renderPicker(); };
+
+  inp.addEventListener('input', async () => {
+    inp.value = inp.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (inp.value.length === 4) {
+      const icao = inp.value;
+      inp.disabled = true;
+      try {
+        const d = await fetchOne(icao);
+        if (isStale(d)) { manualSlot = { error: true }; }
+        else {
+          let city = ''; if (d.info) city = d.info.city || d.info.name || '';
+          if (city.indexOf('/')>=0) city = city.split('/').pop().trim();
+          manualSlot = { icao, city, metar: d };
+          editingManual = false; renderPicker();
+          selectIcao(icao);
+          return;
+        }
+      } catch (e) { manualSlot = { error: true }; }
+      editingManual = false; renderPicker();
+    }
+  });
+
+  inp.addEventListener('blur', () => { if (editingManual) finish(); });
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { editingManual = false; renderPicker(); } });
+}
+
+/* ---- Re-résout la station manuelle (utilisé par le pull-to-refresh) ---- */
+async function refreshManual() {
+  if (!manualSlot || manualSlot.error) return;
+  const icao = manualSlot.icao;
+  try {
+    const d = await fetchOne(icao);
+    if (isStale(d)) return;
+    let city = ''; if (d.info) city = d.info.city || d.info.name || '';
+    if (city.indexOf('/')>=0) city = city.split('/').pop().trim();
+    manualSlot = { icao, city, metar: d };
+    if (activeIcao === icao) showMetar(d);
+    renderPicker();
+  } catch (e) { /* on garde l'ancienne valeur */ }
 }
 
 /* ---- Démarrage : géoloc → stations proches ---- */
 function start() {
   refreshKeybox();
-  if (!getKey()) { document.getElementById('station').textContent = 'Clé AVWX requise'; return; }
-  if (navigator.geolocation) {
-    document.getElementById('station').textContent = 'Localisation…';
-    navigator.geolocation.getCurrentPosition(
-      (pos) => { renderSunset(pos.coords.latitude, pos.coords.longitude); loadStations(pos.coords.latitude, pos.coords.longitude); },
-      () => { renderSunset(MURET.lat, MURET.lon); loadStations(MURET.lat, MURET.lon); },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-    );
-  } else {
-    loadStations(MURET.lat, MURET.lon);
-  }
+  if (!getKey()) { setStationMsg('Clé AVWX requise'); return; }
+  if (!navigator.geolocation) { onGeoError({ code: 2 }); return; }
+  setStationMsg('Localisation…');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => { renderSunset(pos.coords.latitude, pos.coords.longitude); loadStations(pos.coords.latitude, pos.coords.longitude); },
+    (err) => { onGeoError(err); },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+  );
 }
+renderPicker();   // 3 pastilles visibles d'emblée (slot manuel « + » inclus)
 start();
 
-// Rafraîchit la position dès que l'appli reprend le focus (nouveau lieu = nouvelles stations)
-function refreshOnFocus() {
-  if (document.visibilityState === 'visible') start();
+/* ---- Pull-to-refresh maison sur l'onglet Météo ---- */
+function refreshAll() {
+  start();          // relance géoloc + 2 stations auto
+  refreshManual();  // re-résout la station manuelle
 }
-window.addEventListener('focus', refreshOnFocus);
-document.addEventListener('visibilitychange', refreshOnFocus);
+(function () {
+  const tab = document.querySelector('.tab[data-tab="meteo"]');
+  if (!tab) return;
+  const ind = document.getElementById('ptrInd');
+  const THRESHOLD = 70, MAX = 90;
+  let startY = 0, pulling = false, dist = 0;
 
-/* ---- Tambours ATIS ---- */
+  tab.addEventListener('touchstart', (e) => {
+    if (tab.scrollTop > 0 || editingManual) { pulling = false; return; }
+    startY = e.touches[0].clientY; pulling = true; dist = 0;
+  }, { passive: true });
+
+  tab.addEventListener('touchmove', (e) => {
+    if (!pulling) return;
+    dist = e.touches[0].clientY - startY;
+    if (dist <= 0) { if (ind) ind.style.opacity = '0'; return; }
+    const d = Math.min(dist, MAX);
+    if (ind) {
+      ind.style.opacity = String(Math.min(1, d / THRESHOLD));
+      ind.style.transform = 'translateX(-50%) translateY('+(d - 40)+'px) rotate('+(d * 3)+'deg)';
+    }
+    if (dist > 6) e.preventDefault();  // évite le scroll pendant le tir
+  }, { passive: false });
+
+  tab.addEventListener('touchend', () => {
+    if (!pulling) return;
+    pulling = false;
+    if (dist >= THRESHOLD) {
+      if (ind) { ind.classList.add('spin'); ind.style.opacity = '1'; ind.style.transform = 'translateX(-50%) translateY(30px)'; }
+      refreshAll();
+      setTimeout(() => { if (ind) { ind.classList.remove('spin'); ind.style.opacity = '0'; ind.style.transform = 'translateX(-50%) translateY(-40px)'; } }, 1200);
+    } else {
+      if (ind) { ind.style.opacity = '0'; ind.style.transform = 'translateX(-50%) translateY(-40px)'; }
+    }
+  });
+})();
 const ITEM_H = 44;
 function buildDrum(id, values, startIndex) {
   const drum = document.getElementById(id), list = drum.querySelector('.list'); let idx = startIndex;
