@@ -210,7 +210,7 @@
   .sep.hsep { font-size: 20px; font-weight: 600; color: var(--muted); padding: 0 3px; text-transform: lowercase; }
 
   body.digit-seg .digit-item.sel { font-size: 19px; }
-  body.digit-seg .recap-box { font-size: 18px; }
+  body.digit-seg .recap-box { font-size: 16px; }
   body.digit-seg .sep { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 
   .section.total { background: var(--accent); border-color: var(--accent); }
@@ -247,12 +247,12 @@
   .recap-block:last-child { margin-bottom: 0; }
   .recap-title {
     font-size: 16px; letter-spacing: 0.14em; text-transform: uppercase; color: #ffd27f;
-    font-weight: 800; margin-bottom: 2px; padding-left: 10px; border-left: 3px solid #ffd27f;
+    font-weight: 800; margin-bottom: 12px; padding-left: 10px; border-left: 3px solid #ffd27f;
   }
   .recap-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; }
   .recap-key { font-size: 16px; font-weight: 600; color: #bfe3c9; flex: 0 0 auto; }
   .recap-val {
-    font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; color: #fff;
+    font-size: 23px; font-weight: 600; font-variant-numeric: tabular-nums; color: #fff;
     background: rgba(0,0,0,0.28); border-radius: 8px; padding: 5px 14px;
   }
   .recap-counter { flex-wrap: wrap; gap: 8px; }
@@ -1625,6 +1625,8 @@ const HDV = (function () {
       head.addEventListener('click', () => {
         const wasOpen = section.classList.contains('open');
         container.querySelectorAll('.cl-section.open').forEach(s => s.classList.remove('open'));
+        const total = document.getElementById('totalSection');
+        if (total) total.classList.add('folded');
         if (!wasOpen) {
           section.classList.add('open');
           // Amène le bloc ouvert en haut de la zone visible (après l'animation)
@@ -1826,7 +1828,19 @@ const HDV = (function () {
     const totalHead = document.getElementById('totalHead');
     if (totalSection && totalHead) {
       totalHead.addEventListener('click', () => {
+        const willOpen = totalSection.classList.contains('folded');
         totalSection.classList.toggle('folded');
+        if (willOpen) {
+          // Replie les sections de checklist, comme un accordéon commun
+          document.querySelectorAll('#checklist .cl-section.open').forEach(s => s.classList.remove('open'));
+          const scroller = totalSection.closest('.tab');
+          setTimeout(() => {
+            if (!scroller) return;
+            const top = scroller.scrollTop + totalSection.getBoundingClientRect().top
+                        - scroller.getBoundingClientRect().top - 8;
+            scroller.scrollTo({ top, behavior: 'smooth' });
+          }, 60);
+        }
       });
     }
   })();
@@ -2125,13 +2139,23 @@ function start() {
     navigator.geolocation.getCurrentPosition(
       (pos) => { renderSunset(pos.coords.latitude, pos.coords.longitude); loadStations(pos.coords.latitude, pos.coords.longitude); },
       () => { renderSunset(MURET.lat, MURET.lon); loadStations(MURET.lat, MURET.lon); },
-      { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
   } else {
     loadStations(MURET.lat, MURET.lon);
   }
 }
 start();
+
+// Rafraîchit la position quand l'appli revient au premier plan (nouveau lieu = nouvelles stations)
+let lastFix = Date.now();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  // Anti-rebond : au plus une re-géolocalisation par minute
+  if (Date.now() - lastFix < 60000) return;
+  lastFix = Date.now();
+  start();
+});
 
 /* ---- Tambours ATIS ---- */
 const ITEM_H = 44;
