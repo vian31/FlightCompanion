@@ -459,14 +459,15 @@
   /* =========================================================
      BARRE BASSE + FOOTER (version)
      ========================================================= */
-  .bottombar { padding: 10px 0 4px; }
+  .bottombar { display: flex; justify-content: flex-end; padding: 6px 0; }
   .settings-btn {
-    width: 100%; padding: 16px; font-size: 16px; font-weight: 700; font-family: inherit;
-    color: var(--paper); background: var(--accent); border: none; border-radius: 16px;
-    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 44px; height: 44px; padding: 0; font-family: inherit;
+    color: var(--muted); background: transparent; border: 1px solid var(--line);
+    border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
   }
-  .settings-btn:active { opacity: 0.85; }
-
+  .settings-btn svg { width: 22px; height: 22px; }
+  .settings-btn:active { opacity: 0.6; }
   footer.appfoot {
     flex-shrink: 0; text-align: center; font-size: 12px; color: var(--muted);
     padding: 6px 0 calc(6px + env(safe-area-inset-bottom)); letter-spacing: 0.04em;
@@ -705,9 +706,9 @@
   </div>
 
   <!-- Barre basse commune -->
-  <div style="padding:0 22px;flex-shrink:0">
+  <div style="padding:0 18px 6px;flex-shrink:0">
     <div class="bottombar">
-      <button class="settings-btn" id="openSettings">⚙ Paramètres · Aide</button>
+      <button class="settings-btn" id="openSettings" aria-label="Paramètres · Aide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
   </div>
 
@@ -1818,6 +1819,8 @@ const HDV = (function () {
     HDV.resetAll();                 // remet les heures/horamètres à zéro
     Object.keys(wasComplete).forEach(k => delete wasComplete[k]);
     build();                        // reconstruit (roues remises à zéro, vert effacé)
+    const total = document.getElementById('totalSection');
+    if (total) total.classList.add('folded');   // replie aussi « Retour de vol »
     const scroller = container.closest('.tab');
     if (scroller) scroller.scrollTo({ top: 0, behavior: 'smooth' });
   });
@@ -2147,15 +2150,12 @@ function start() {
 }
 start();
 
-// Rafraîchit la position quand l'appli revient au premier plan (nouveau lieu = nouvelles stations)
-let lastFix = Date.now();
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible') return;
-  // Anti-rebond : au plus une re-géolocalisation par minute
-  if (Date.now() - lastFix < 60000) return;
-  lastFix = Date.now();
-  start();
-});
+// Rafraîchit la position dès que l'appli reprend le focus (nouveau lieu = nouvelles stations)
+function refreshOnFocus() {
+  if (document.visibilityState === 'visible') start();
+}
+window.addEventListener('focus', refreshOnFocus);
+document.addEventListener('visibilitychange', refreshOnFocus);
 
 /* ---- Tambours ATIS ---- */
 const ITEM_H = 44;
