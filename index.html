@@ -887,7 +887,7 @@ Caches Pitot = En place
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "2.4";
+const APP_VERSION = "2.5";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* =====================================================================
@@ -1940,7 +1940,7 @@ function runwaySvg(hdg) {
 }
 function baseRose(extra, noDot) {
   let s = '';
-  if (hasLfboSlot()) s += runwaySvg(120);
+  if (activeIsLfbo()) s += runwaySvg(120);
   s += '<circle cx="120" cy="120" r="92" fill="none" stroke="#e3ead9" stroke-width="2"/>';
   s += '<circle cx="120" cy="120" r="46" fill="none" stroke="#eee6d6" stroke-width="1"/>';
   for (let a = 0; a < 360; a += 10) { const major = (a%30===0); const r1 = major?80:86, r2 = 92;
@@ -2202,11 +2202,6 @@ async function loadStations(lat, lon) {
     // Affiche la 1re station trouvée si rien n'est encore sélectionné
     if (activeIcao == null || !slotHasIcao(activeIcao)) {
       activeIcao = found[0].icao; showMetar(found[0].metar);
-    } else {
-      // La composition des 3 pastilles a changé (ex. LFBO vient d'apparaître) :
-      // ré-affiche la station active pour que la rosace tienne compte de la nouvelle condition
-      const activeSlot = allSlots().find(s => s.data && !s.data.error && s.data.icao === activeIcao);
-      if (activeSlot) showMetar(activeSlot.data.metar);
     }
     renderPicker();
   }
@@ -2227,8 +2222,8 @@ function slotHasIcao(icao) {
   return allSlots().some(s => s.data && !s.data.error && s.data.icao === icao);
 }
 
-// Piste tracée dans la rosace uniquement si LFBO fait partie des 3 stations affichées
-function hasLfboSlot() { return slotHasIcao('LFBO'); }
+// Piste tracée dans la rosace uniquement si la pastille LFBO est la station active affichée
+function activeIsLfbo() { return activeIcao === 'LFBO'; }
 
 /* ---- Échec géolocalisation : message ciblé, pastilles auto en "----" ---- */
 function onGeoError(err) {
