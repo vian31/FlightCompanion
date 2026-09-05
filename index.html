@@ -887,7 +887,7 @@ Caches Pitot = En place
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "2.3";
+const APP_VERSION = "2.4";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* =====================================================================
@@ -1918,6 +1918,12 @@ function fmtMinLocal(utcMin){ const off = -new Date().getTimezoneOffset(); let l
 function renderSunset(lat, lon){ const ss = sunsetUTCmin(new Date(), lat, lon); document.getElementById('sunsetT').textContent = ss==null ? '--:--' : fmtMinLocal(ss); }
 renderSunset(MURET.lat, MURET.lon);
 
+/* ---- État des 3 pastilles station (déclaré tôt : la rosace en dépend dès son 1er rendu) ---- */
+let autoSlots = [null, null];   // chaque slot : null | { icao, city, metar }
+let manualSlot = null;          // null | { icao, city, metar } | { error:true }
+let activeIcao = null;          // ICAO de la station affichée
+let loadToken = 0;              // jeton anti-course (invalide les chargements obsolètes)
+
 /* ---- Rose des vents ---- */
 const rose = document.getElementById('rose');
 const CX = 120, CY = 120, R = 92, F_FULL = 20;
@@ -1934,7 +1940,7 @@ function runwaySvg(hdg) {
 }
 function baseRose(extra, noDot) {
   let s = '';
-  s += runwaySvg(120);
+  if (hasLfboSlot()) s += runwaySvg(120);
   s += '<circle cx="120" cy="120" r="92" fill="none" stroke="#e3ead9" stroke-width="2"/>';
   s += '<circle cx="120" cy="120" r="46" fill="none" stroke="#eee6d6" stroke-width="1"/>';
   for (let a = 0; a < 360; a += 10) { const major = (a%30===0); const r1 = major?80:86, r2 = 92;
@@ -2110,11 +2116,6 @@ async function fetchNearest(lat, lon, n) {
    ===================================================================== */
 const NEAR_N = 8;        // on interroge large côté AVWX
 const AUTO_KEEP = 2;     // 2 pastilles automatiques
-let autoSlots = [null, null];   // chaque slot : null | { icao, city, metar }
-let manualSlot = null;          // null | { icao, city, metar } | { error:true }
-let activeIcao = null;          // ICAO de la station affichée
-let loadToken = 0;              // jeton anti-course (invalide les chargements obsolètes)
-
 // Message d'état affiché SOUS les pastilles (zone #station)
 function setStationMsg(txt) { document.getElementById('station').textContent = txt; }
 
@@ -2201,6 +2202,11 @@ async function loadStations(lat, lon) {
     // Affiche la 1re station trouvée si rien n'est encore sélectionné
     if (activeIcao == null || !slotHasIcao(activeIcao)) {
       activeIcao = found[0].icao; showMetar(found[0].metar);
+    } else {
+      // La composition des 3 pastilles a changé (ex. LFBO vient d'apparaître) :
+      // ré-affiche la station active pour que la rosace tienne compte de la nouvelle condition
+      const activeSlot = allSlots().find(s => s.data && !s.data.error && s.data.icao === activeIcao);
+      if (activeSlot) showMetar(activeSlot.data.metar);
     }
     renderPicker();
   }
@@ -2220,6 +2226,9 @@ async function loadStations(lat, lon) {
 function slotHasIcao(icao) {
   return allSlots().some(s => s.data && !s.data.error && s.data.icao === icao);
 }
+
+// Piste tracée dans la rosace uniquement si LFBO fait partie des 3 stations affichées
+function hasLfboSlot() { return slotHasIcao('LFBO'); }
 
 /* ---- Échec géolocalisation : message ciblé, pastilles auto en "----" ---- */
 function onGeoError(err) {
