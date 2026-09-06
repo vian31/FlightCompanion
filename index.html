@@ -829,7 +829,7 @@
 
           <div class="sect-title"><span>Notes</span><span class="clr" id="clrNote">effacer</span></div>
           <div class="note-wrap">
-            <textarea class="note" id="note"></textarea>
+            <textarea class="note" id="note" autocapitalize="characters"></textarea>
           </div>
         </div>
       </section>
@@ -1050,7 +1050,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.7";
+const APP_VERSION = "3.8";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* ---- Recharger la dernière version -----------------------------------
@@ -3074,12 +3074,22 @@ buildDrum('drumRwy', ['12','30'], 0);
 
 /* ---- Notes ---- */
 const note = document.getElementById('note'), NKEY = 'meteo-note';
-(function(){ const v = load(NKEY); if (v != null) note.value = v; })();
+(function(){ const v = load(NKEY); if (v != null) note.value = v.toUpperCase(); })();
 // L'enregistrement est différé : sans cela chaque frappe écrivait dans le
 // stockage, ce qui hache la saisie sur une note longue.
 let noteTimer = null;
 function saveNote(){ clearTimeout(noteTimer); noteTimer = null; store(NKEY, note.value); }
-note.addEventListener('input', () => { clearTimeout(noteTimer); noteTimer = setTimeout(saveNote, 400); });
+note.addEventListener('input', () => {
+  // Note forcée en majuscules. On remet le curseur là où il était : sans
+  // cela, corriger un mot au milieu du texte le renverrait à la fin.
+  const maj = note.value.toUpperCase();
+  if (maj !== note.value) {
+    const debut = note.selectionStart, fin = note.selectionEnd;
+    note.value = maj;
+    try { note.setSelectionRange(debut, fin); } catch (e) {}
+  }
+  clearTimeout(noteTimer); noteTimer = setTimeout(saveNote, 400);
+});
 note.addEventListener('blur', saveNote);
 window.addEventListener('pagehide', saveNote);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState==='hidden') saveNote(); });
