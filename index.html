@@ -215,9 +215,8 @@
   body.digit-seg .sep { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 
   .section.total { background: var(--accent); border-color: var(--accent); }
-  .section.total .section-title { color: #fff; margin-bottom: 0; font-size: 20px; }
 
-  /* En-tête cliquable du bloc Retour de vol */
+  /* En-tête cliquable d'un vol enregistré */
   .total-head {
     display: flex; align-items: center; justify-content: space-between;
     cursor: pointer; user-select: none;
@@ -235,14 +234,6 @@
   }
   .total-body-inner { min-height: 0; overflow: hidden; }
   .section.total.folded .total-body { grid-template-rows: 0fr; opacity: 0; margin-top: 0; }
-
-  .recap-reason {
-    display: none; font-size: 16px; font-weight: 800; letter-spacing: 0.02em;
-    text-align: center; color: #fff; background: #b32020; border-radius: 10px;
-    padding: 10px 12px; margin-bottom: 14px;
-  }
-  .recap-reason.show { display: block; animation: blink-reason 0.85s ease-in-out infinite; }
-  @keyframes blink-reason { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
 
   .recap-block { margin-bottom: 20px; }
   .recap-block:last-child { margin-bottom: 0; }
@@ -497,7 +488,7 @@
   .drum .band { position: absolute; left: 8px; right: 8px; top: 44px; height: 44px; border-top: 2px solid var(--accent-soft); border-bottom: 2px solid var(--accent-soft); pointer-events: none; border-radius: 8px; }
 
   .note-wrap { margin-bottom: 10px; }
-  textarea.note { width: 100%; min-height: 160px; resize: vertical; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; font-family: inherit; font-size: 20px; line-height: 1.5; color: var(--ink); outline: none; }
+  textarea.note { width: 100%; min-height: 160px; resize: vertical; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; font-family: inherit; font-size: 24px; line-height: 1.5; color: var(--ink); outline: none; }
   textarea.note:focus { border-color: var(--accent); }
 
   /* =========================================================
@@ -640,6 +631,79 @@
   .help-sub { font-size: 16px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin: 18px 0 10px; }
   .help-sub:first-child { margin-top: 0; }
 
+  /* =========================================================
+     CLÔTURE DU VOL (bas de la checklist)
+     ========================================================= */
+  .close-flight { margin-top: 20px; }
+  .btn-close-flight {
+    -webkit-appearance: none; appearance: none; width: 100%;
+    border: none; background: var(--accent); color: #fff; font-family: inherit;
+    font-size: 19px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 17px 18px; border-radius: 14px; cursor: pointer; user-select: none;
+    transition: transform 0.1s, opacity 0.15s;
+  }
+  .btn-close-flight:active { transform: scale(0.98); }
+  .close-flight.open .btn-close-flight { opacity: 0.55; }
+
+  /* Panneau de saisie du trajet (déplié par le bouton) */
+  .cf-panel {
+    display: grid; grid-template-rows: 0fr;
+    transition: grid-template-rows 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .close-flight.open .cf-panel { grid-template-rows: 1fr; }
+  .cf-panel-inner { overflow: hidden; min-height: 0; }
+  .cf-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px 18px 20px; margin-top: 12px;
+  }
+  .cf-msg {
+    display: none; font-size: 16px; font-weight: 700; line-height: 1.4;
+    color: #fff; background: #b32020; border-radius: 10px; padding: 10px 12px; margin-bottom: 14px;
+  }
+  .cf-msg.show { display: block; }
+  .cf-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .cf-lab {
+    font-size: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted); flex: 0 0 80px;
+  }
+  .cf-input {
+    flex: 1; min-width: 0; font-family: inherit; font-size: 22px; font-weight: 700;
+    letter-spacing: 0.18em; text-align: center; text-transform: uppercase;
+    padding: 11px 8px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--paper); color: var(--ink);
+  }
+  .cf-input:focus { outline: none; border-color: var(--accent); }
+  /* Masque de saisie discret, et effacé dès que le champ est actif */
+  .cf-input::placeholder {
+    font-size: 16px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--muted); opacity: 0.5;
+  }
+  .cf-input:focus::placeholder { color: transparent; }
+  .cf-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .cf-actions button {
+    flex: 1; font-family: inherit; font-size: 17px; font-weight: 700;
+    padding: 13px 10px; border-radius: 11px; cursor: pointer; user-select: none;
+    transition: transform 0.1s;
+  }
+  .cf-actions button:active { transform: scale(0.97); }
+  .cf-cancel { border: 1px solid var(--line); background: var(--card); color: var(--muted); }
+  .cf-ok { border: none; background: var(--accent); color: #fff; }
+
+  /* =========================================================
+     MES DERNIERS VOLS — carnet des 5 derniers vols
+     ========================================================= */
+  /* Chaque vol reprend le bloc « .section.total » : même repli, même chevron */
+  .total-head .flight-headings { flex: 1; min-width: 0; }
+  .flight-route {
+    font-size: 21px; font-weight: 800; color: #fff; letter-spacing: 0.04em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .flight-sub { font-size: 16px; font-weight: 600; color: #bfe3c9; margin-top: 4px; }
+  .flights-empty {
+    font-size: 17px; line-height: 1.5; color: var(--muted); text-align: center;
+    padding: 26px 14px; border: 1px dashed var(--line); border-radius: 16px;
+  }
+
 </style>
 </head>
 <body>
@@ -662,41 +726,46 @@
 
           <div id="checklist"></div>
 
-          <!-- Retour de vol (récap horamètre / temps de vol) — repliable -->
-          <div class="section total folded" id="totalSection">
-            <div class="recap-reason" id="totalReason"></div>
-            <div class="total-head" id="totalHead">
-              <div class="section-title">Retour de vol</div>
-              <div class="total-chevron">⌄</div>
-            </div>
-            <div class="total-body"><div class="total-body-inner">
-
-            <div class="recap-block">
-              <div class="recap-title">Vol (heure locale)</div>
-              <div class="recap-line"><span class="recap-key">Départ</span><span class="recap-val" id="recapDepDT">—</span></div>
-              <div class="recap-line"><span class="recap-key">Arrivée</span><span class="recap-val" id="recapArrDT">—</span></div>
-            </div>
-
-            <div class="recap-block">
-              <div class="recap-title">Compteur</div>
-              <div class="recap-line recap-counter">
-                <span class="recap-key">Horamètre</span>
-                <span class="recap-box" id="recapHoraDep">0000,00</span>
-                <span class="recap-box" id="recapHoraArr">0000,00</span>
-              </div>
-            </div>
-
-            <div class="recap-block">
-              <div class="recap-title">Temps de vol</div>
-              <div class="recap-tdv"><span class="recap-tdv-key">Horaire</span><span class="recap-tdv-val"><span id="recapTdvMin">0 min</span> · <span id="recapTdvHM">00 h 00</span></span></div>
-              <div class="recap-tdv"><span class="recap-tdv-key">Décimal</span><span class="recap-tdv-val"><span id="recapTdvDec">0,00</span> h</span></div>
-            </div>
-
-            </div></div>
-          </div>
-
           <!-- Bloc « Après le vol » — rendu par le module RAPPELS -->
           <div id="apresVol"></div>
+
+          <!-- Clôture : archive le vol dans « Mes derniers vols » -->
+          <div class="close-flight" id="closeFlight">
+            <button class="btn-close-flight" id="cfOpen">Clôturer le vol</button>
+            <div class="cf-panel"><div class="cf-panel-inner">
+              <div class="cf-card">
+                <div class="cf-msg" id="cfMsg"></div>
+                <div class="cf-row">
+                  <div class="cf-lab">Départ</div>
+                  <input class="cf-input" id="cfFrom" type="text" maxlength="5" placeholder="LFBO"
+                         autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false"
+                         aria-label="Lieu de départ">
+                </div>
+                <div class="cf-row">
+                  <div class="cf-lab">Arrivée</div>
+                  <input class="cf-input" id="cfTo" type="text" maxlength="5" placeholder="LFMT"
+                         autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false"
+                         aria-label="Lieu d'arrivée">
+                </div>
+                <div class="cf-actions">
+                  <button class="cf-cancel" id="cfCancel">Annuler</button>
+                  <button class="cf-ok" id="cfSave">Enregistrer</button>
+                </div>
+              </div>
+            </div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================ ONGLET MES DERNIERS VOLS ================ -->
+      <section class="tab" data-tab="vols">
+        <div class="tab-header">
+          <h1>Mes derniers vols</h1>
+        </div>
+        <div class="pad pad-top">
+
+          <!-- Carnet : les 5 derniers vols clôturés, plus récent en tête -->
+          <div id="flightList"></div>
         </div>
       </section>
 
@@ -836,13 +905,22 @@
           <li>Horamètre : régler les roues ; l'item se valide (heure verte) dès la première roue touchée.</li>
           <li>Bloc : toucher « Maintenant » pour enregistrer l'heure courante.</li>
           <li>L'horamètre de départ est recopié vers l'arrivée dès que sa section est complète.</li>
-          <li>Le bloc « Retour de vol » en bas récapitule le temps de vol et signale les incohérences.</li>
+          <li>Le temps de vol est calculé à partir des heures bloc, et récapitulé dans le vol une fois celui-ci clôturé.</li>
         </ul>
         <div class="help-sub">Avant / Après le vol</div>
         <ul class="help-list">
-          <li>« Avant le vol » ouvre la checklist ; « Après le vol » est sous le bloc « Retour de vol ».</li>
+          <li>« Avant le vol » ouvre la checklist ; « Après le vol » la referme, juste au-dessus du bouton de clôture.</li>
           <li>Saisir les litres embarqués (Plein carburant) et restants coche l'item automatiquement.</li>
-          <li>La conso du vol et la conso horaire se calculent sous « Carburant restant », d'après le temps de vol du bloc « Retour de vol ».</li>
+          <li>La conso du vol et la conso horaire se calculent sous « Carburant restant », d'après le temps de vol (heures bloc).</li>
+        </ul>
+        <div class="help-sub">Mes derniers vols</div>
+        <ul class="help-list">
+          <li>« Clôturer le vol », tout en bas de la checklist, demande le lieu de départ et d'arrivée (5 caractères maximum, en majuscules) puis archive le vol.</li>
+          <li>Le départ est pré-rempli avec l'arrivée du vol précédent, et reste modifiable.</li>
+          <li>La clôture refuse un vol incomplet : trajet, heures bloc et horamètres sont obligatoires, et le temps de vol ne peut pas dépasser l'horamètre.</li>
+          <li>Le vol enregistré fige les heures bloc, les horamètres, le temps de vol, le carburant et la conso horaire.</li>
+          <li>Les 5 derniers vols sont conservés, le plus récent en tête ; un seul bloc s'ouvre à la fois.</li>
+          <li>La clôture ne remet pas la checklist à zéro : utiliser ↻ pour repartir sur un vol vierge.</li>
         </ul>
         <div class="help-sub">Général &amp; Météo</div>
         <ul class="help-list">
@@ -970,7 +1048,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "2.9";
+const APP_VERSION = "3.4";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* =====================================================================
@@ -1076,9 +1154,10 @@ const FONT_STACKS = {
 // Catalogue des onglets (l'ordre d'affichage est piloté par settings.order)
 const TAB_DEFS = {
   checklist: { id: 'checklist', label: 'Checklist' },
+  vols:      { id: 'vols',      label: 'Mes derniers vols' },
   meteo:     { id: 'meteo',     label: 'Météo' }
 };
-const DEFAULT_ORDER = ['checklist', 'meteo'];
+const DEFAULT_ORDER = ['checklist', 'vols', 'meteo'];
 
 // Renvoie les définitions d'onglets dans l'ordre choisi par l'utilisateur,
 // en réparant toute liste incomplète ou corrompue.
@@ -1104,10 +1183,18 @@ const settings = {
   palette: savedS.palette || 'foret',
   font:    savedS.font    || 'system',
   // onglets visibles : objet id -> bool (par défaut tous visibles)
-  tabs: Object.assign({ checklist: true, meteo: true }, savedS.tabs || {}),
+  tabs: Object.assign({ checklist: true, vols: true, meteo: true }, savedS.tabs || {}),
   // ordre d'affichage des onglets (liste d'ids)
   order: Array.isArray(savedS.order) ? savedS.order.slice() : DEFAULT_ORDER.slice()
 };
+
+// Ordre mémorisé avant l'arrivée de « Mes derniers vols » : on insère
+// l'onglet juste après la Checklist au lieu de le laisser en fin de liste.
+if (settings.order.indexOf('vols') === -1) {
+  const iCl = settings.order.indexOf('checklist');
+  settings.order.splice(iCl >= 0 ? iCl + 1 : settings.order.length, 0, 'vols');
+  saveSettings();
+}
 
 /* =====================================================================
    COQUILLE À ONGLETS — traits + swipe + tap
@@ -1494,17 +1581,20 @@ const HDV = (function () {
   // fields : name -> élément .digits (avec _wheels/_set/_digits/_onChange)
   const fields = {};
 
-  /* ---- Récap « Retour de vol » (éléments résolus paresseusement) ---- */
-  const $ = id => document.getElementById(id);
   const ZERO_BLOC = [0, 0, 0, 0];
   const ZERO_HORA = [0, 0, 0, 0, 0, 0];
 
   const blocToMin = d => (d[0]*10 + d[1]) * 60 + (d[2]*10 + d[3]);
   const horaToCent = d => (d[0]*1000 + d[1]*100 + d[2]*10 + d[3]) * 100 + (d[4]*10 + d[5]);
   const pad2 = n => String(n).padStart(2, '0');
+
+  // Temps compteur en minutes : l'horamètre compte en centièmes d'heure.
+  function horaMinutes(dep, arr) {
+    let dc = horaToCent(arr) - horaToCent(dep);
+    if (dc < 0) dc = 0;
+    return Math.round(Math.floor(dc / 100) * 60 + (dc % 100) * 60 / 100);
+  }
   function todayStr() { const d = new Date(); return pad2(d.getDate()) + '/' + pad2(d.getMonth()+1) + '/' + d.getFullYear(); }
-  const blocStr = d => `${d[0]}${d[1]}:${d[2]}${d[3]}`;
-  const horaStr = d => `${d[0]}${d[1]}${d[2]}${d[3]},${d[4]}${d[5]}`;
 
   // Renvoie les chiffres d'un champ, ou des zéros si le champ n'est pas (encore) monté.
   function digitsOf(name, zeros) { return fields[name] ? fields[name]._digits() : zeros.slice(); }
@@ -1515,40 +1605,15 @@ const HDV = (function () {
   const listeners = [];
   function onRecompute(fn) { listeners.push(fn); fn(flightMin); }
 
+  // Temps de vol (bloc) recalculé à chaque saisie ; il alimente la conso
+  // horaire des rappels et la clôture d'un vol.
   function recompute() {
     const depBloc = digitsOf('bloc-dep', ZERO_BLOC);
     const arrBloc = digitsOf('bloc-arr', ZERO_BLOC);
-    const depHora = digitsOf('hora-dep', ZERO_HORA);
-    const arrHora = digitsOf('hora-arr', ZERO_HORA);
-
-    const dj = todayStr();
-    const setTxt = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-    setTxt('recapDepDT', `${dj} - ${blocStr(depBloc)}`);
-    setTxt('recapArrDT', `${dj} - ${blocStr(arrBloc)}`);
-    setTxt('recapHoraDep', horaStr(depHora));
-    setTxt('recapHoraArr', horaStr(arrHora));
 
     let diff = blocToMin(arrBloc) - blocToMin(depBloc);
     if (diff < 0) diff += 24 * 60;
     flightMin = diff;
-    const hh = Math.floor(diff / 60), mm = diff % 60;
-    setTxt('recapTdvMin', diff + ' min');
-    setTxt('recapTdvHM', pad2(hh) + ' h ' + pad2(mm));
-    setTxt('recapTdvDec', (diff / 60).toFixed(2).replace('.', ','));
-
-    let dc = horaToCent(arrHora) - horaToCent(depHora);
-    if (dc < 0) dc = 0;
-    const totMin = Math.round(Math.floor(dc / 100) * 60 + (dc % 100) * 60 / 100);
-    // Alerte : temps de vol (bloc) supérieur à ce que montre l'horamètre.
-    // On exige seulement qu'il y ait du temps bloc ; le cas « horamètre non
-    // noté » (totMin = 0 alors que le bloc tourne) doit justement alerter.
-    const tooLong = diff > 0 && diff > totMin;
-    const reason = tooLong ? "Temps de vol supérieur à l'horamètre" : '';
-    const totalReasonEl = $('totalReason');
-    if (totalReasonEl) {
-      totalReasonEl.textContent = reason;
-      totalReasonEl.classList.toggle('show', reason !== '');
-    }
 
     listeners.forEach(fn => { try { fn(flightMin); } catch (e) {} });
   }
@@ -1619,6 +1684,22 @@ const HDV = (function () {
     return d;
   }
   function getDigits(fieldName) { return fields[fieldName] ? fields[fieldName]._digits() : null; }
+  // Photographie du vol en cours, figée à la clôture (voir module FLIGHTS).
+  // horaMin sert au contrôle de cohérence : le temps compteur ne peut pas
+  // être inférieur au temps de vol (bloc).
+  function snapshot() {
+    const horaDep = digitsOf('hora-dep', ZERO_HORA);
+    const horaArr = digitsOf('hora-arr', ZERO_HORA);
+    return {
+      date:    todayStr(),
+      blocDep: digitsOf('bloc-dep', ZERO_BLOC),
+      blocArr: digitsOf('bloc-arr', ZERO_BLOC),
+      horaDep: horaDep,
+      horaArr: horaArr,
+      horaMin: horaMinutes(horaDep, horaArr),
+      tdvMin:  flightMin
+    };
+  }
   function isBlank(fieldName) {
     const d = getDigits(fieldName);
     return !d || d.every(x => x === 0);
@@ -1634,7 +1715,7 @@ const HDV = (function () {
 
   recompute();
 
-  return { createField, setNow, copyHoraDepToArr, getDigits, isBlank, resetAll, recompute, onRecompute };
+  return { createField, setNow, copyHoraDepToArr, getDigits, isBlank, resetAll, recompute, onRecompute, snapshot };
 })();
 
 
@@ -1806,8 +1887,6 @@ const RAPPELS = (function () {
       const scroller = el.closest('.tab');
       // Accordéon commun à l'onglet : une seule section ouverte à la fois
       scroller.querySelectorAll('.cl-section.open').forEach(s => s.classList.remove('open'));
-      const total = document.getElementById('totalSection');
-      if (total && scroller.contains(total)) total.classList.add('folded');
       if (!wasOpen) {
         el.classList.add('open');
         setTimeout(() => {
@@ -1861,6 +1940,14 @@ const RAPPELS = (function () {
   }
   function resetAll() { Object.keys(blocks).forEach(reset); }
 
+  // Carburant du vol en cours, figé à la clôture (voir module FLIGHTS).
+  function snapshot() {
+    const dep = fuelValue('dep'), arr = fuelValue('arr');
+    const conso = (dep !== null && arr !== null) ? dep - arr : null;
+    const rate = (conso !== null && flightMin > 0) ? conso / (flightMin / 60) : null;
+    return { fuelDep: dep, fuelArr: arr, conso: conso, rate: rate };
+  }
+
   parse(document.getElementById('rappels-data').textContent).forEach(sec => {
     const hostId = TARGETS[NORM(sec.title)];
     const host = hostId && document.getElementById(hostId);
@@ -1876,7 +1963,7 @@ const RAPPELS = (function () {
   HDV.onRecompute(min => { flightMin = min; refreshCalc(); });
   refreshCalc();
 
-  return { reset, resetAll };
+  return { reset, resetAll, snapshot };
 })();
 
 
@@ -1992,8 +2079,6 @@ const RAPPELS = (function () {
         const wasOpen = section.classList.contains('open');
         const scroller = section.closest('.tab');
         scroller.querySelectorAll('.cl-section.open').forEach(s => s.classList.remove('open'));
-        const total = document.getElementById('totalSection');
-        if (total) total.classList.add('folded');
         if (!wasOpen) {
           section.classList.add('open');
           // Amène le bloc ouvert en haut de la zone visible (après l'animation)
@@ -2185,36 +2270,236 @@ const RAPPELS = (function () {
     HDV.resetAll();                 // remet les heures/horamètres à zéro
     Object.keys(wasComplete).forEach(k => delete wasComplete[k]);
     build();                        // reconstruit (roues remises à zéro, vert effacé)
-    const total = document.getElementById('totalSection');
-    if (total) total.classList.add('folded');   // replie aussi « Retour de vol »
     const scroller = container.closest('.tab');
     if (scroller) scroller.scrollTo({ top: 0, behavior: 'smooth' });
   });
 
-  /* ---- Repli du bloc « Retour de vol » (replié par défaut) ---- */
-  (function () {
-    const totalSection = document.getElementById('totalSection');
-    const totalHead = document.getElementById('totalHead');
-    if (totalSection && totalHead) {
-      totalHead.addEventListener('click', () => {
-        const willOpen = totalSection.classList.contains('folded');
-        totalSection.classList.toggle('folded');
-        if (willOpen) {
-          // Replie les sections de l'onglet, comme un accordéon commun
-          const scroller = totalSection.closest('.tab');
-          scroller.querySelectorAll('.cl-section.open').forEach(s => s.classList.remove('open'));
-          setTimeout(() => {
-            if (!scroller) return;
-            const top = scroller.scrollTop + totalSection.getBoundingClientRect().top
-                        - scroller.getBoundingClientRect().top - 8;
-            scroller.scrollTo({ top, behavior: 'smooth' });
-          }, 60);
-        }
-      });
-    }
-  })();
-
   build();
+})();
+
+
+/* =====================================================================
+   MES DERNIERS VOLS — clôture d'un vol et carnet des 5 derniers
+   ---------------------------------------------------------------------
+   Le bouton « Clôturer le vol » (bas de la checklist) demande le trajet,
+   fige le vol en cours (heures bloc, horamètres, temps de vol, carburant
+   et conso horaire) dans le stockage du navigateur, puis bascule sur cet
+   onglet. Les vols y sont triés du plus récent au plus ancien, en blocs
+   repliables — un seul ouvert à la fois, comme la checklist.
+   ===================================================================== */
+const FLIGHTS = (function () {
+  const KEY = 'hdv-flights';
+  const MAX = 5;                       // on ne garde que les 5 derniers vols
+  const MIN_CODE = 3;                  // longueur minimale d'un lieu saisi
+
+  const listEl = document.getElementById('flightList');
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const pad2 = n => String(n).padStart(2, '0');
+
+  /* ---- Formatage des valeurs figées ---- */
+  const blocStr = d => `${d[0]}${d[1]}:${d[2]}${d[3]}`;
+  const horaStr = d => `${d[0]}${d[1]}${d[2]}${d[3]},${d[4]}${d[5]}`;
+  const hm  = min => pad2(Math.floor(min / 60)) + ' h ' + pad2(min % 60);
+  const dec = min => (min / 60).toFixed(2).replace('.', ',');
+  const num = (n, unit) => (n === null || n === undefined || !isFinite(n))
+    ? '—' : n.toFixed(1).replace('.', ',') + ' ' + unit;
+
+  /* ---- Stockage ---- */
+  function loadAll() {
+    const raw = load(KEY);
+    if (!raw) return [];
+    let arr; try { arr = JSON.parse(raw); } catch (e) { return []; }
+    return Array.isArray(arr) ? arr : [];
+  }
+  // Tri décroissant sur la clé date+heure : le plus récent en tête.
+  function sorted(arr) { return arr.slice().sort((a, b) => String(b.sort).localeCompare(String(a.sort))); }
+  function saveAll(arr) { store(KEY, JSON.stringify(sorted(arr).slice(0, MAX))); }
+
+  // Clé de tri « AAAAMMJJHHMM » à partir de la date (jj/mm/aaaa) et du bloc départ.
+  function sortKey(date, blocDep) {
+    const p = String(date).split('/');
+    const ymd = (p[2] || '') + (p[1] || '') + (p[0] || '');
+    return ymd + `${blocDep[0]}${blocDep[1]}${blocDep[2]}${blocDep[3]}`;
+  }
+
+  /* ---- Accordéon de l'onglet : un seul bloc ouvert à la fois ---- */
+  function bindFold(section, head) {
+    head.addEventListener('click', () => {
+      const willOpen = section.classList.contains('folded');
+      const scroller = section.closest('.tab');
+      scroller.querySelectorAll('.section.total').forEach(s => s.classList.add('folded'));
+      if (!willOpen) return;
+      section.classList.remove('folded');
+      setTimeout(() => {
+        const top = scroller.scrollTop + section.getBoundingClientRect().top
+                    - scroller.getBoundingClientRect().top - 8;
+        scroller.scrollTo({ top, behavior: 'smooth' });
+      }, 60);
+    });
+  }
+
+  /* ---- Rendu d'un vol enregistré ---- */
+  const recapLine = (k, v) => '<div class="recap-line"><span class="recap-key">' + k
+    + '</span><span class="recap-val">' + v + '</span></div>';
+  const recapTdv = (k, v) => '<div class="recap-tdv"><span class="recap-tdv-key">' + k
+    + '</span><span class="recap-tdv-val">' + v + '</span></div>';
+
+  function bodyHtml(f) {
+    return '<div class="recap-block"><div class="recap-title">Vol (heure locale)</div>'
+         +   recapLine('Départ',  esc(f.date) + ' - ' + blocStr(f.blocDep))
+         +   recapLine('Arrivée', esc(f.date) + ' - ' + blocStr(f.blocArr))
+         + '</div>'
+         + '<div class="recap-block"><div class="recap-title">Compteur</div>'
+         +   '<div class="recap-line recap-counter"><span class="recap-key">Horamètre</span>'
+         +   '<span class="recap-box">' + horaStr(f.horaDep) + '</span>'
+         +   '<span class="recap-box">' + horaStr(f.horaArr) + '</span></div>'
+         + '</div>'
+         + '<div class="recap-block"><div class="recap-title">Temps de vol</div>'
+         +   recapTdv('Horaire', f.tdvMin + ' min · ' + hm(f.tdvMin))
+         +   recapTdv('Décimal', dec(f.tdvMin) + ' h')
+         + '</div>'
+         + '<div class="recap-block"><div class="recap-title">Carburant</div>'
+         +   recapTdv('Embarqué',     num(f.fuelDep, 'L'))
+         +   recapTdv('Restant',      num(f.fuelArr, 'L'))
+         +   recapTdv('Conso du vol', num(f.conso,   'L'))
+         +   recapTdv('Conso horaire', num(f.rate,   'L/h'))
+         + '</div>';
+  }
+
+  function buildBlock(f, open) {
+    const el = document.createElement('div');
+    el.className = 'section total' + (open ? '' : ' folded');
+    const head = document.createElement('div');
+    head.className = 'total-head';
+    head.innerHTML = '<div class="flight-headings">'
+      + '<div class="flight-route">' + esc(f.from) + ' → ' + esc(f.to) + '</div>'
+      + '<div class="flight-sub">' + esc(f.date) + ' · ' + hm(f.tdvMin) + '</div>'
+      + '</div><div class="total-chevron">⌄</div>';
+    const body = document.createElement('div');
+    body.className = 'total-body';
+    body.innerHTML = '<div class="total-body-inner">' + bodyHtml(f) + '</div>';
+    el.append(head, body);
+    bindFold(el, head);
+    return el;
+  }
+
+  // openId : identifiant du vol à laisser déplié (celui qu'on vient de clôturer).
+  function render(openId) {
+    const flights = sorted(loadAll()).slice(0, MAX);
+    listEl.innerHTML = '';
+    if (flights.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'flights-empty';
+      empty.textContent = 'Aucun vol enregistré. Le bouton « Clôturer le vol », en bas de la checklist, archive ici le vol en cours.';
+      listEl.appendChild(empty);
+      return;
+    }
+    flights.forEach(f => listEl.appendChild(buildBlock(f, f.id === openId)));
+  }
+
+  /* ---- Clôture d'un vol ---- */
+  // Enregistre le vol ; un vol déjà clôturé le même jour à la même heure
+  // bloc de départ est mis à jour plutôt que dupliqué.
+  function add(rec) {
+    const arr = loadAll();
+    const i = arr.findIndex(f => f.sort === rec.sort);
+    if (i >= 0) { rec.id = arr[i].id; arr[i] = rec; } else { arr.push(rec); }
+    saveAll(arr);
+    return rec.id;
+  }
+
+  const panel   = document.getElementById('closeFlight');
+  const openBtn = document.getElementById('cfOpen');
+  const fromEl  = document.getElementById('cfFrom');
+  const toEl    = document.getElementById('cfTo');
+  const msgEl   = document.getElementById('cfMsg');
+
+  // 5 caractères alphanumériques maximum, forcés en majuscules.
+  const clean = v => v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+  [fromEl, toEl].forEach(inp => {
+    inp.addEventListener('input', () => {
+      const v = clean(inp.value);
+      if (v !== inp.value) inp.value = v;
+      msg('');
+    });
+  });
+
+  function msg(text) {
+    msgEl.textContent = text;
+    msgEl.classList.toggle('show', text !== '');
+  }
+  // L'avion repart d'où il s'est posé : le départ est pré-rempli avec
+  // l'arrivée du dernier vol clôturé. Le champ reste modifiable.
+  function lastArrival() {
+    const arr = sorted(loadAll());
+    return arr.length ? (arr[0].to || '') : '';
+  }
+  function setOpen(on) {
+    panel.classList.toggle('open', on);
+    if (!on) msg('');
+  }
+
+  openBtn.addEventListener('click', () => {
+    const willOpen = !panel.classList.contains('open');
+    setOpen(willOpen);
+    if (!willOpen) return;
+    if (!fromEl.value) fromEl.value = lastArrival();
+    setTimeout(() => {
+      const scroller = panel.closest('.tab');
+      if (scroller) scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
+      // Départ déjà connu : le clavier s'ouvre directement sur l'arrivée.
+      (fromEl.value ? toEl : fromEl).focus();
+    }, 320);
+  });
+  document.getElementById('cfCancel').addEventListener('click', () => setOpen(false));
+
+  document.getElementById('cfSave').addEventListener('click', () => {
+    const from = clean(fromEl.value), to = clean(toEl.value);
+    if (from.length < MIN_CODE || to.length < MIN_CODE) {
+      msg('Saisir le lieu de départ et le lieu d\'arrivée (' + MIN_CODE + ' à 5 caractères).');
+      return;
+    }
+    const s = HDV.snapshot();
+    if (s.tdvMin <= 0) { msg('Heures bloc non renseignées : le temps de vol est nul.'); return; }
+    // L'horamètre est obligatoire, et il tourne au moins aussi longtemps
+    // que le temps bloc : sinon un compteur a été oublié ou mal relevé.
+    const blank = d => d.every(x => x === 0);
+    if (blank(s.horaDep) || blank(s.horaArr)) {
+      msg('Horamètre de départ ou d\'arrivée non renseigné.');
+      return;
+    }
+    if (s.tdvMin > s.horaMin) {
+      msg('Temps de vol supérieur à l\'horamètre : vérifier les compteurs.');
+      return;
+    }
+
+    const fuel = RAPPELS.snapshot();
+    const id = add({
+      id: 'v' + Date.now(),
+      sort: sortKey(s.date, s.blocDep),
+      date: s.date, from: from, to: to,
+      blocDep: s.blocDep, blocArr: s.blocArr,
+      horaDep: s.horaDep, horaArr: s.horaArr,
+      tdvMin: s.tdvMin,
+      fuelDep: fuel.fuelDep, fuelArr: fuel.fuelArr,
+      conso: fuel.conso, rate: fuel.rate
+    });
+
+    fromEl.value = ''; toEl.value = '';
+    setOpen(false);
+    render(id);
+
+    // Bascule sur l'onglet du carnet, vol fraîchement clôturé déplié en tête.
+    const idx = visibleTabs.indexOf('vols');
+    if (idx >= 0) goTo(idx);
+    const scroller = listEl.closest('.tab');
+    if (scroller) scroller.scrollTo({ top: 0, behavior: 'auto' });
+  });
+
+  /* ---- Amorçage ---- */
+  render();
+
+  return { render };
 })();
 
 
