@@ -673,6 +673,12 @@
     background: var(--paper); color: var(--ink);
   }
   .cf-input:focus { outline: none; border-color: var(--accent); }
+  /* Masque de saisie discret, et effacé dès que le champ est actif */
+  .cf-input::placeholder {
+    font-size: 16px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--muted); opacity: 0.5;
+  }
+  .cf-input:focus::placeholder { color: transparent; }
   .cf-actions { display: flex; gap: 10px; margin-top: 18px; }
   .cf-actions button {
     flex: 1; font-family: inherit; font-size: 17px; font-weight: 700;
@@ -1042,7 +1048,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.3";
+const APP_VERSION = "3.4";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* =====================================================================
