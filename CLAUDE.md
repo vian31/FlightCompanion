@@ -28,11 +28,44 @@ deux, et il ne survit pas à la validation.
 
 # Contraintes du projet
 
-- Fichier unique `index.html`, auto-contenu. Pas de dépendance
-  externe au runtime, pas de fetch() vers un fichier local.
+- L'app tient dans `index.html`, auto-contenu : styles, scripts,
+  icônes et données à l'intérieur. Pas de dépendance externe au
+  runtime (CDN, bibliothèque, police distante), pas de fetch()
+  vers un fichier local.
+- Seule exception : `sw.js`, le service worker, à côté de
+  `index.html`. Un service worker ne peut pas être chargé depuis
+  un blob: ni un data: — il lui faut un vrai fichier same-origin.
+  N'ajouter d'autres fichiers que pour une contrainte technique
+  du même ordre, jamais par confort.
 - Données embarquées via <script type="text/plain">.
 - Taille de police minimale : 16px partout.
 - Cible : Android, usage en vol, hors ligne.
+
+# Hors ligne et mises à jour
+
+- `sw.js` applique « réseau d'abord, cache de secours » : avec du
+  réseau la page vient toujours du serveur, sans réseau la
+  dernière version chargée est resservie. Au-delà de 6 s d'attente
+  le cache prend le relais.
+- Le document est redemandé avec `cache: 'no-store'` : sans cela le
+  cache HTTP du navigateur masque la version qui vient d'être
+  publiée.
+- Les appels météo (avwx.rest) ne sont jamais interceptés ni mis en
+  cache : une observation périmée servie de mémoire serait
+  dangereuse.
+- Le manifeste PWA est construit en JS puis servi via un Blob : ses
+  URL (`id`, `start_url`, `scope`) doivent rester **absolues**, une
+  URL relative ne peut pas se résoudre depuis un `blob:`.
+- Les réglages proposent « Recharger la dernière version » : c'est
+  le seul moyen de rafraîchir une app installée, qui n'a ni barre
+  d'adresse ni tirer-pour-rafraîchir.
+
+# Stockage
+
+- Tout passe par `store` / `load` / `drop` : localStorage, avec
+  repli cookie **uniquement** si localStorage est refusé — un
+  cookie plafonne à 4 Ko et repart vers le serveur à chaque
+  requête. Ajouter toute nouvelle clé à `STORE_KEYS`.
 
 # Structure de l'app
 

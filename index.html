@@ -928,6 +928,8 @@
           <li>Météo : les stations silencieuses ou périmées sont automatiquement écartées.</li>
           <li>Pour un usage plein écran, ajouter la page à l'écran d'accueil.</li>
           <li>Installée, l'app n'a plus de barre d'adresse : « Recharger la dernière version », dans les réglages, va rechercher la mise à jour sur le serveur.</li>
+          <li>Une fois la page ouverte avec du réseau, elle reste disponible hors ligne ; les réglages indiquent « disponible hors ligne » quand c'est le cas.</li>
+          <li>La météo, elle, demande toujours du réseau : aucune observation n'est servie depuis le cache.</li>
         </ul>
       </div>
     </div>
@@ -1048,7 +1050,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.6";
+const APP_VERSION = "3.7";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* ---- Recharger la dernière version -----------------------------------
@@ -1061,21 +1063,30 @@ document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 (function () {
   const hint = document.getElementById('updateHint');
   const btn = document.getElementById('btnUpdate');
-  if (hint) hint.textContent = 'Version ' + APP_VERSION + ' en cours d\'exécution.';
+  function majHint() {
+    if (!hint) return;
+    const prete = ('serviceWorker' in navigator) && !!navigator.serviceWorker.controller;
+    hint.textContent = 'Version ' + APP_VERSION + (prete ? ' · disponible hors ligne.' : ' en cours d\'exécution.');
+  }
+  majHint();
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(majHint).catch(() => {});
+    navigator.serviceWorker.addEventListener('controllerchange', majHint);
+  }
   if (!btn) return;
   btn.addEventListener('click', async () => {
     btn.disabled = true;
     btn.textContent = 'Rechargement…';
-    try {
-      if (window.caches) {
-        const noms = await caches.keys();
-        await Promise.all(noms.map(n => caches.delete(n).catch(() => {})));
-      }
-    } catch (e) {}
+    // On ne vide pas le cache : c'est le secours hors ligne. Le service
+    // worker va au réseau d'abord, un simple rechargement suffit donc à
+    // récupérer la dernière version dès qu'il y en a.
     try {
       if ('serviceWorker' in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+        await Promise.all(regs.map(async r => {
+          try { await r.update(); } catch (e) {}
+          if (r.waiting) r.waiting.postMessage('skip-waiting');
+        }));
       }
     } catch (e) {}
     try {
@@ -1194,23 +1205,20 @@ const FOLD_DELAY = 1000;
     document.head.appendChild(link);
   } catch (e) {}
 
-  // Pas de service worker : son script doit être un fichier same-origin,
-  // et un blob: est refusé par le navigateur. L'ancien enregistrement
-  // échouait donc en silence tout en laissant un cache « aviation-v1 »
-  // que rien ne relisait — on le supprime pour de bon.
-  try {
-    if (window.caches) {
-      caches.keys().then(noms => {
-        noms.filter(n => n.indexOf("aviation") === 0)
-            .forEach(n => caches.delete(n).catch(() => {}));
-      }).catch(() => {});
-    }
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.getRegistrations()
-        .then(regs => regs.forEach(r => r.unregister().catch(() => {})))
+  // Service worker : « sw.js », fichier voisin de cette page. Il doit être
+  // same-origin (un blob: est refusé) et n'est disponible qu'en HTTPS ou sur
+  // localhost — ouverte en file://, la page fonctionne, simplement sans
+  // secours hors ligne.
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" })
+        .then(reg => {
+          // Recherche une nouvelle version à chaque ouverture de l'app.
+          try { reg.update(); } catch (e) {}
+        })
         .catch(() => {});
-    }
-  } catch (e) {}
+    });
+  }
 })();
 
 /* =====================================================================
