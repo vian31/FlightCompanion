@@ -215,9 +215,8 @@
   body.digit-seg .sep { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 
   .section.total { background: var(--accent); border-color: var(--accent); }
-  .section.total .section-title { color: #fff; margin-bottom: 0; font-size: 20px; }
 
-  /* En-tête cliquable du bloc Retour de vol */
+  /* En-tête cliquable d'un vol enregistré */
   .total-head {
     display: flex; align-items: center; justify-content: space-between;
     cursor: pointer; user-select: none;
@@ -235,14 +234,6 @@
   }
   .total-body-inner { min-height: 0; overflow: hidden; }
   .section.total.folded .total-body { grid-template-rows: 0fr; opacity: 0; margin-top: 0; }
-
-  .recap-reason {
-    display: none; font-size: 16px; font-weight: 800; letter-spacing: 0.02em;
-    text-align: center; color: #fff; background: #b32020; border-radius: 10px;
-    padding: 10px 12px; margin-bottom: 14px;
-  }
-  .recap-reason.show { display: block; animation: blink-reason 0.85s ease-in-out infinite; }
-  @keyframes blink-reason { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
 
   .recap-block { margin-bottom: 20px; }
   .recap-block:last-child { margin-bottom: 0; }
@@ -497,7 +488,7 @@
   .drum .band { position: absolute; left: 8px; right: 8px; top: 44px; height: 44px; border-top: 2px solid var(--accent-soft); border-bottom: 2px solid var(--accent-soft); pointer-events: none; border-radius: 8px; }
 
   .note-wrap { margin-bottom: 10px; }
-  textarea.note { width: 100%; min-height: 160px; resize: vertical; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; font-family: inherit; font-size: 20px; line-height: 1.5; color: var(--ink); outline: none; }
+  textarea.note { width: 100%; min-height: 160px; resize: vertical; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; font-family: inherit; font-size: 24px; line-height: 1.5; color: var(--ink); outline: none; }
   textarea.note:focus { border-color: var(--accent); }
 
   /* =========================================================
@@ -767,41 +758,7 @@
         </div>
         <div class="pad pad-top">
 
-          <!-- Vol en cours (récap horamètre / temps de vol) — repliable -->
-          <div class="section total folded" id="totalSection">
-            <div class="recap-reason" id="totalReason"></div>
-            <div class="total-head" id="totalHead">
-              <div class="section-title">Vol en cours</div>
-              <div class="total-chevron">⌄</div>
-            </div>
-            <div class="total-body"><div class="total-body-inner">
-
-            <div class="recap-block">
-              <div class="recap-title">Vol (heure locale)</div>
-              <div class="recap-line"><span class="recap-key">Départ</span><span class="recap-val" id="recapDepDT">—</span></div>
-              <div class="recap-line"><span class="recap-key">Arrivée</span><span class="recap-val" id="recapArrDT">—</span></div>
-            </div>
-
-            <div class="recap-block">
-              <div class="recap-title">Compteur</div>
-              <div class="recap-line recap-counter">
-                <span class="recap-key">Horamètre</span>
-                <span class="recap-box" id="recapHoraDep">0000,00</span>
-                <span class="recap-box" id="recapHoraArr">0000,00</span>
-              </div>
-            </div>
-
-            <div class="recap-block">
-              <div class="recap-title">Temps de vol</div>
-              <div class="recap-tdv"><span class="recap-tdv-key">Horaire</span><span class="recap-tdv-val"><span id="recapTdvMin">0 min</span> · <span id="recapTdvHM">00 h 00</span></span></div>
-              <div class="recap-tdv"><span class="recap-tdv-key">Décimal</span><span class="recap-tdv-val"><span id="recapTdvDec">0,00</span> h</span></div>
-            </div>
-
-            </div></div>
-          </div>
-
           <!-- Carnet : les 5 derniers vols clôturés, plus récent en tête -->
-          <div class="sect-title">Vols enregistrés</div>
           <div id="flightList"></div>
         </div>
       </section>
@@ -942,13 +899,13 @@
           <li>Horamètre : régler les roues ; l'item se valide (heure verte) dès la première roue touchée.</li>
           <li>Bloc : toucher « Maintenant » pour enregistrer l'heure courante.</li>
           <li>L'horamètre de départ est recopié vers l'arrivée dès que sa section est complète.</li>
-          <li>Le bloc « Vol en cours », dans l'onglet « Mes derniers vols », récapitule le temps de vol et signale les incohérences.</li>
+          <li>Le temps de vol est calculé à partir des heures bloc, et récapitulé dans le vol une fois celui-ci clôturé.</li>
         </ul>
         <div class="help-sub">Avant / Après le vol</div>
         <ul class="help-list">
           <li>« Avant le vol » ouvre la checklist ; « Après le vol » la referme, juste au-dessus du bouton de clôture.</li>
           <li>Saisir les litres embarqués (Plein carburant) et restants coche l'item automatiquement.</li>
-          <li>La conso du vol et la conso horaire se calculent sous « Carburant restant », d'après le temps de vol du bloc « Vol en cours ».</li>
+          <li>La conso du vol et la conso horaire se calculent sous « Carburant restant », d'après le temps de vol (heures bloc).</li>
         </ul>
         <div class="help-sub">Mes derniers vols</div>
         <ul class="help-list">
@@ -1084,7 +1041,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.1";
+const APP_VERSION = "3.2";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* =====================================================================
@@ -1617,17 +1574,12 @@ const HDV = (function () {
   // fields : name -> élément .digits (avec _wheels/_set/_digits/_onChange)
   const fields = {};
 
-  /* ---- Récap « Retour de vol » (éléments résolus paresseusement) ---- */
-  const $ = id => document.getElementById(id);
   const ZERO_BLOC = [0, 0, 0, 0];
   const ZERO_HORA = [0, 0, 0, 0, 0, 0];
 
   const blocToMin = d => (d[0]*10 + d[1]) * 60 + (d[2]*10 + d[3]);
-  const horaToCent = d => (d[0]*1000 + d[1]*100 + d[2]*10 + d[3]) * 100 + (d[4]*10 + d[5]);
   const pad2 = n => String(n).padStart(2, '0');
   function todayStr() { const d = new Date(); return pad2(d.getDate()) + '/' + pad2(d.getMonth()+1) + '/' + d.getFullYear(); }
-  const blocStr = d => `${d[0]}${d[1]}:${d[2]}${d[3]}`;
-  const horaStr = d => `${d[0]}${d[1]}${d[2]}${d[3]},${d[4]}${d[5]}`;
 
   // Renvoie les chiffres d'un champ, ou des zéros si le champ n'est pas (encore) monté.
   function digitsOf(name, zeros) { return fields[name] ? fields[name]._digits() : zeros.slice(); }
@@ -1638,40 +1590,15 @@ const HDV = (function () {
   const listeners = [];
   function onRecompute(fn) { listeners.push(fn); fn(flightMin); }
 
+  // Temps de vol (bloc) recalculé à chaque saisie ; il alimente la conso
+  // horaire des rappels et la clôture d'un vol.
   function recompute() {
     const depBloc = digitsOf('bloc-dep', ZERO_BLOC);
     const arrBloc = digitsOf('bloc-arr', ZERO_BLOC);
-    const depHora = digitsOf('hora-dep', ZERO_HORA);
-    const arrHora = digitsOf('hora-arr', ZERO_HORA);
-
-    const dj = todayStr();
-    const setTxt = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-    setTxt('recapDepDT', `${dj} - ${blocStr(depBloc)}`);
-    setTxt('recapArrDT', `${dj} - ${blocStr(arrBloc)}`);
-    setTxt('recapHoraDep', horaStr(depHora));
-    setTxt('recapHoraArr', horaStr(arrHora));
 
     let diff = blocToMin(arrBloc) - blocToMin(depBloc);
     if (diff < 0) diff += 24 * 60;
     flightMin = diff;
-    const hh = Math.floor(diff / 60), mm = diff % 60;
-    setTxt('recapTdvMin', diff + ' min');
-    setTxt('recapTdvHM', pad2(hh) + ' h ' + pad2(mm));
-    setTxt('recapTdvDec', (diff / 60).toFixed(2).replace('.', ','));
-
-    let dc = horaToCent(arrHora) - horaToCent(depHora);
-    if (dc < 0) dc = 0;
-    const totMin = Math.round(Math.floor(dc / 100) * 60 + (dc % 100) * 60 / 100);
-    // Alerte : temps de vol (bloc) supérieur à ce que montre l'horamètre.
-    // On exige seulement qu'il y ait du temps bloc ; le cas « horamètre non
-    // noté » (totMin = 0 alors que le bloc tourne) doit justement alerter.
-    const tooLong = diff > 0 && diff > totMin;
-    const reason = tooLong ? "Temps de vol supérieur à l'horamètre" : '';
-    const totalReasonEl = $('totalReason');
-    if (totalReasonEl) {
-      totalReasonEl.textContent = reason;
-      totalReasonEl.classList.toggle('show', reason !== '');
-    }
 
     listeners.forEach(fn => { try { fn(flightMin); } catch (e) {} });
   }
@@ -2323,8 +2250,6 @@ const RAPPELS = (function () {
     HDV.resetAll();                 // remet les heures/horamètres à zéro
     Object.keys(wasComplete).forEach(k => delete wasComplete[k]);
     build();                        // reconstruit (roues remises à zéro, vert effacé)
-    const total = document.getElementById('totalSection');
-    if (total) total.classList.add('folded');   // replie aussi « Vol en cours »
     const scroller = container.closest('.tab');
     if (scroller) scroller.scrollTo({ top: 0, behavior: 'smooth' });
   });
@@ -2351,7 +2276,7 @@ const FLIGHTS = (function () {
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const pad2 = n => String(n).padStart(2, '0');
 
-  /* ---- Formatage (mêmes conventions que le bloc « Vol en cours ») ---- */
+  /* ---- Formatage des valeurs figées ---- */
   const blocStr = d => `${d[0]}${d[1]}:${d[2]}${d[3]}`;
   const horaStr = d => `${d[0]}${d[1]}${d[2]}${d[3]},${d[4]}${d[5]}`;
   const hm  = min => pad2(Math.floor(min / 60)) + ' h ' + pad2(min % 60);
@@ -2534,8 +2459,6 @@ const FLIGHTS = (function () {
     render(id);
 
     // Bascule sur l'onglet du carnet, vol fraîchement clôturé déplié en tête.
-    const live = document.getElementById('totalSection');
-    if (live) live.classList.add('folded');
     const idx = visibleTabs.indexOf('vols');
     if (idx >= 0) goTo(idx);
     const scroller = listEl.closest('.tab');
@@ -2543,9 +2466,6 @@ const FLIGHTS = (function () {
   });
 
   /* ---- Amorçage ---- */
-  const live = document.getElementById('totalSection');
-  const liveHead = document.getElementById('totalHead');
-  if (live && liveHead) bindFold(live, liveHead);
   render();
 
   return { render };

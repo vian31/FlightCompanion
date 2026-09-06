@@ -42,9 +42,9 @@ deux, et il ne survit pas à la validation.
 - Checklist : blocs repliables, un seul ouvert à la fois. « Avant le
   vol » en tête, « Après le vol » en bas, puis le bouton
   « Clôturer le vol ».
-- Mes derniers vols : le bloc « Vol en cours » (récap horamètre et
-  temps de vol, alimenté en direct par `HDV`), puis les 5 derniers
-  vols clôturés, plus récent en tête, mêmes blocs repliables.
+- Mes derniers vols : les 5 derniers vols clôturés, plus récent en
+  tête, en blocs repliables — un seul ouvert à la fois. Pas de récap
+  du vol en cours : le temps de vol n'apparaît qu'une fois clôturé.
 - Clôturer un vol demande le trajet (5 caractères alphanumériques
   en majuscules) et fige le vol ; la checklist n'est pas remise à
   zéro, c'est le rôle du bouton ↻.
