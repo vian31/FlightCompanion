@@ -137,11 +137,6 @@
     color: var(--muted);
     font-weight: 600;
   }
-  .tab-header .today {
-    font-size: 16px;
-    color: var(--muted);
-    text-transform: capitalize;
-  }
 
   /* Titre de section commun à tous les onglets */
   .sect-title {
@@ -169,14 +164,6 @@
     border: 1px solid var(--card-border);
     border-radius: 16px;
     padding: 18px 20px 22px;
-    margin-bottom: 16px;
-  }
-  .section-title {
-    font-size: 18px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--accent);
-    font-weight: 800;
     margin-bottom: 16px;
   }
   .digits { display: flex; align-items: center; justify-content: center; gap: 2px; }
@@ -418,7 +405,6 @@
   .picker .pill .pc { font-size: 16px; opacity: 0.8; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .picker .pill.active { background: var(--accent); border-color: var(--accent); }
   .picker .pill.active .pi, .picker .pill.active .pc { color: var(--paper); }
-  .picker .pill.wait { opacity: 0.5; }
   /* Pastille manuelle : fond légèrement différencié */
   .picker .pill.manual { background: var(--accent-soft); border-style: dashed; }
   .picker .pill.manual.active { background: var(--accent); border-style: solid; }
@@ -542,7 +528,6 @@
     transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .modal-overlay.on .modal { transform: translateY(0); }
-  .modal.closing { transform: translateY(100%); }
   /* En-tête de la popup : poignée (glisser/tap) + croix de fermeture */
   .modal-head {
     position: sticky; top: 0; z-index: 2; background: var(--paper);
@@ -1063,7 +1048,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.5";
+const APP_VERSION = "3.6";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* ---- Recharger la dernière version -----------------------------------
@@ -1110,9 +1095,20 @@ function lsAvailable() {
   catch (e) { return false; }
 }
 const HAS_LS = lsAvailable();
+
+// Clés de l'app : sert au nettoyage des anciens cookies (voir plus bas).
+const STORE_KEYS = ['app-settings', 'current-tab', 'checklist-state', 'rappels-state',
+                    'hdv-entries', 'hdv-flights', 'avwx-token', 'meteo-note'];
+
+// Le cookie n'est qu'un filet quand localStorage est refusé : il plafonne à
+// 4 Ko et repart vers le serveur à chaque requête. Y recopier les vols et la
+// checklist, comme on le faisait, alourdissait chaque chargement pour rien.
 function setCookie(name, value) {
   const exp = new Date(Date.now() + 10*365*24*3600*1000).toUTCString();
   document.cookie = `${name}=${encodeURIComponent(value)};expires=${exp};path=/;SameSite=Lax`;
+}
+function delCookie(name) {
+  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Lax`;
 }
 function getCookie(name) {
   const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
@@ -1120,7 +1116,9 @@ function getCookie(name) {
 }
 function store(key, value) {
   memStore[key] = value;
-  if (HAS_LS) { try { localStorage.setItem(key, value); } catch (e) {} }
+  if (HAS_LS) {
+    try { localStorage.setItem(key, value); return; } catch (e) {}
+  }
   setCookie(key, value);
 }
 function load(key) {
@@ -1133,8 +1131,38 @@ function load(key) {
 function drop(key) {
   delete memStore[key];
   if (HAS_LS) { try { localStorage.removeItem(key); } catch (e) {} }
-  setCookie(key, '');
+  delCookie(key);
 }
+
+// Reprise des installations précédentes : ce qui n'existe que sous forme de
+// cookie est recopié dans localStorage, puis le cookie est effacé.
+if (HAS_LS) {
+  STORE_KEYS.forEach(k => {
+    const c = getCookie(k);
+    if (c == null) return;
+    try {
+      const actuel = localStorage.getItem(k);
+      if ((actuel == null || actuel === '') && c !== '') localStorage.setItem(k, c);
+    } catch (e) {}
+    delCookie(k);
+  });
+}
+
+/* =====================================================================
+   OUTILS PARTAGÉS — helpers employés par plusieurs modules
+   ===================================================================== */
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// Libellé normalisé (minuscules, sans accents) : sert aux tables de
+// correspondance libellé -> comportement des checklists.
+const NORM = s => String(s).toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/\s+/g, ' ').trim();
+const pad2 = n => String(n).padStart(2, '0');
+const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+const CHEVRON_SVG = '<svg class="cl-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+// Repli automatique d'une section qui vient d'être complétée : laisse le
+// temps de lire l'heure qui vient de s'inscrire.
+const FOLD_DELAY = 1000;
 
 /* =====================================================================
    PWA — manifeste d'installation (mono-fichier, via Blob)
@@ -1244,7 +1272,6 @@ if (settings.order.indexOf('vols') === -1) {
    ===================================================================== */
 const track = document.getElementById('track');
 const tabbar = document.getElementById('tabbar');
-const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
 let visibleTabs = [];   // liste des ids visibles, dans l'ordre
 let current = 0;        // index dans visibleTabs
@@ -1351,9 +1378,10 @@ const LONG_PRESS_MS = 350;
 function buildTabToggles() {
   const wrap = document.getElementById('tabToggles');
   wrap.innerHTML = '';
-  orderedTabs().forEach((t, i) => {
+  const ordre = orderedTabs();
+  const visibleCount = ordre.filter(x => settings.tabs[x.id]).length;
+  ordre.forEach((t, i) => {
     const on = !!settings.tabs[t.id];
-    const visibleCount = orderedTabs().filter(x => settings.tabs[x.id]).length;
     const locked = on && visibleCount <= 1;   // interdit de tout masquer
     const row = document.createElement('div');
     row.className = 'tabtoggle' + (on ? ' on' : '') + (locked ? ' locked' : '');
@@ -1629,7 +1657,6 @@ const HDV = (function () {
 
   const blocToMin = d => (d[0]*10 + d[1]) * 60 + (d[2]*10 + d[3]);
   const horaToCent = d => (d[0]*1000 + d[1]*100 + d[2]*10 + d[3]) * 100 + (d[4]*10 + d[5]);
-  const pad2 = n => String(n).padStart(2, '0');
 
   // Temps compteur en minutes : l'horamètre compte en centièmes d'heure.
   function horaMinutes(dep, arr) {
@@ -1769,11 +1796,6 @@ const HDV = (function () {
    le second affiche la conso du vol et la conso horaire.
    ===================================================================== */
 const RAPPELS = (function () {
-  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const NORM = s => s.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ').trim();
-
   // Titre de section (normalisé) -> conteneur d'accueil dans l'onglet Checklist
   const TARGETS = { 'avant le vol': 'avantVol', 'apres le vol': 'apresVol' };
 
@@ -1784,8 +1806,6 @@ const RAPPELS = (function () {
     'carburant restant': { key: 'arr', unit: 'L restants', calc: true }
   };
 
-  const CHEVRON = '<svg class="cl-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
-  const FOLD_DELAY = 1000;   // ms — même repli automatique que les sections checklist
 
   const STATE_KEY = 'rappels-state';
   let state = {};
@@ -1923,7 +1943,7 @@ const RAPPELS = (function () {
 
     const head = document.createElement('div');
     head.className = 'cl-head';
-    head.innerHTML = CHEVRON + '<div class="cl-title">' + esc(sec.title) + '</div>'
+    head.innerHTML = CHEVRON_SVG + '<div class="cl-title">' + esc(sec.title) + '</div>'
       + '<div class="cl-count"></div><div class="cl-check">' + CHECK_SVG + '</div>';
     head.addEventListener('click', () => {
       const wasOpen = el.classList.contains('open');
@@ -2014,8 +2034,6 @@ const RAPPELS = (function () {
    CHECKLIST
    ===================================================================== */
 (function () {
-  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-
   function parseChecklist(raw) {
     const lines = raw.replace(/\r\n/g, '\n').split('\n');
     const sections = []; let sec = null, brief = null;
@@ -2060,8 +2078,6 @@ const RAPPELS = (function () {
   }
 
   const CHECKLIST = parseChecklist(document.getElementById('checklist-data').textContent);
-  const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-  const CHEVRON_SVG = '<svg class="cl-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
 
   const STATE_KEY = 'checklist-state';
   let state = {};
@@ -2083,10 +2099,6 @@ const RAPPELS = (function () {
      simplement la clé ci-dessous.
      kind : 'wheels' = roues 4+2 · 'now' = bouton heure courante
      ========================================================= */
-  const NORM = s => s.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ').trim();
-
   const ACTIVE_MAP = {
     'horametre depart': { field: 'hora-dep', kind: 'wheels' },
     'bloc depart':      { field: 'bloc-dep', kind: 'now' },
@@ -2269,7 +2281,6 @@ const RAPPELS = (function () {
   // Mémorise l'état « complet » précédent de chaque section pour ne
   // déclencher qu'au passage incomplet -> complet (copie + repli).
   const wasComplete = {};
-  const FOLD_DELAY = 1000; // ms — laisse le temps de lire l'heure enregistrée
   let building = false;     // vrai pendant build() : pas d'effets de bord au chargement
 
   function refreshSection(si) {
@@ -2336,8 +2347,6 @@ const FLIGHTS = (function () {
   const MIN_CODE = 3;                  // longueur minimale d'un lieu saisi
 
   const listEl = document.getElementById('flightList');
-  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const pad2 = n => String(n).padStart(2, '0');
 
   /* ---- Formatage des valeurs figées ---- */
   const blocStr = d => `${d[0]}${d[1]}:${d[2]}${d[3]}`;
@@ -2681,10 +2690,10 @@ function parseVis(d) {
   const v = d.visibility; if (!v) return '—';
   if (v.repr==='CAVOK') return '<span class="cavok">CAVOK</span>';
   if (v.repr==='9999' || v.value===9999) return '≥10<span class="u"> km</span>';
-  if (v.value==null) return (v.repr||'—');
+  if (v.value==null) return esc(v.repr||'—');
   const unit = (d.units&&d.units.visibility) ? d.units.visibility : 'm';
   if (unit==='m') { if (v.value>=1000) return (v.value/1000).toLocaleString('fr-FR',{maximumFractionDigits:1})+'<span class="u"> km</span>'; return v.value+'<span class="u"> m</span>'; }
-  return v.value+'<span class="u"> '+unit+'</span>';
+  return v.value+'<span class="u"> '+esc(unit)+'</span>';
 }
 
 /* ---- Blocs d'affichage ---- */
@@ -2730,11 +2739,12 @@ function showMetar(d) {
   const age = fmtAge(d.time&&d.time.dt?d.time.dt:null, d.meta&&d.meta.timestamp?d.meta.timestamp:null);
   const zulu = zuluFromRepr(d.time&&d.time.repr?d.time.repr:'');
   const fr = d.flight_rules || '';
-  const frPill = fr ? '<span class="fr '+fr+'">'+fr+'</span>' : '';
+  // Classe CSS issue de l'API : on n'accepte que les 4 catégories connues.
+  const frPill = /^(VFR|MVFR|IFR|LIFR)$/.test(fr) ? '<span class="fr '+fr+'">'+fr+'</span>' : '';
   const timeTxt = zulu ? (zulu + (age ? ' · ' + age : '')) : age;
   const timeHtml = timeTxt ? '<span class="age">'+timeTxt+'</span>' : '';
   document.getElementById('station').innerHTML =
-    '<span class="icao">'+icao+'</span>'+(city?' · <span class="city">'+city+'</span>':'')+frPill+timeHtml;
+    '<span class="icao">'+esc(icao)+'</span>'+(city?' · <span class="city">'+esc(city)+'</span>':'')+frPill+timeHtml;
 
   const hpa = altimToHpa(d.altimeter);
   document.getElementById('qnhVal').innerHTML = (hpa!=null?hpa:'––––')+'<span class="u">hPa</span>';
@@ -2748,22 +2758,30 @@ function showMetar(d) {
   setLoading(false);
 }
 
-async function fetchOne(icao) {
-  const key = getKey();
-  const url = 'https://avwx.rest/api/metar/'+icao+'?options=info&onfail=cache';
-  const r = await fetch(url, { headers: { 'Authorization': key } });
+// Appel AVWX avec délai maximum : en vol, une liaison qui accepte la
+// connexion sans jamais répondre bloquerait sinon le chargement indéfiniment.
+const NET_TIMEOUT = 9000;
+async function askAvwx(url) {
+  const ctl = ('AbortController' in window) ? new AbortController() : null;
+  const minuteur = ctl ? setTimeout(() => ctl.abort(), NET_TIMEOUT) : null;
+  let r;
+  try {
+    r = await fetch(url, { headers: { 'Authorization': getKey() }, signal: ctl ? ctl.signal : undefined });
+  } catch (e) {
+    throw (e && e.name === 'AbortError') ? new Error('délai dépassé') : e;
+  } finally {
+    if (minuteur) clearTimeout(minuteur);
+  }
   if (r.status===401 || r.status===403) { const e = new Error('auth'); e.auth = true; throw e; }
   if (!r.ok) throw new Error('HTTP '+r.status);
   return r.json();
 }
+function fetchOne(icao) {
+  return askAvwx('https://avwx.rest/api/metar/'+icao+'?options=info&onfail=cache');
+}
 // N stations proches (reporting) → [{icao, city}], dans l'ordre de proximité
 async function fetchNearest(lat, lon, n) {
-  const key = getKey();
-  const url = 'https://avwx.rest/api/station/near/'+lat.toFixed(4)+','+lon.toFixed(4)+'?n='+n+'&reporting=true';
-  const r = await fetch(url, { headers: { 'Authorization': key } });
-  if (r.status===401 || r.status===403) { const e = new Error('auth'); e.auth = true; throw e; }
-  if (!r.ok) throw new Error('HTTP '+r.status);
-  const arr = await r.json();
+  const arr = await askAvwx('https://avwx.rest/api/station/near/'+lat.toFixed(4)+','+lon.toFixed(4)+'?n='+n+'&reporting=true');
   if (!Array.isArray(arr)) return [];
   return arr.map(o => {
     const s = o.station || o; let city = s.city || s.name || '';
@@ -2813,7 +2831,7 @@ function renderPicker() {
     el.className = cls;
 
     if (d && !d.error) {
-      el.innerHTML = '<span class="pi">'+d.icao+'</span>' + (d.city ? '<span class="pc">'+d.city+'</span>' : '');
+      el.innerHTML = '<span class="pi">'+esc(d.icao)+'</span>' + (d.city ? '<span class="pc">'+esc(d.city)+'</span>' : '');
     } else if (d && d.error) {
       el.innerHTML = '<span class="pi">????</span>';
     } else if (slot.kind === 'manual') {
@@ -2876,7 +2894,11 @@ async function loadStations(lat, lon) {
     renderPicker();
     setStationMsg('Aucune station active à proximité');
   } else {
-    setStationMsg('');
+    // La zone #station sert à la fois de ligne d'état et d'en-tête METAR :
+    // l'effacer ici supprimait l'ICAO, la ville et l'âge de l'observation
+    // que showMetar venait d'y écrire. On les réaffiche.
+    const actif = allSlots().find(x => x.data && !x.data.error && x.data.icao === activeIcao);
+    if (actif) showMetar(actif.data.metar); else setStationMsg('');
   }
   setLoading(false);
 }
@@ -3045,8 +3067,11 @@ buildDrum('drumRwy', ['12','30'], 0);
 /* ---- Notes ---- */
 const note = document.getElementById('note'), NKEY = 'meteo-note';
 (function(){ const v = load(NKEY); if (v != null) note.value = v; })();
-function saveNote(){ store(NKEY, note.value); }
-note.addEventListener('input', saveNote);
+// L'enregistrement est différé : sans cela chaque frappe écrivait dans le
+// stockage, ce qui hache la saisie sur une note longue.
+let noteTimer = null;
+function saveNote(){ clearTimeout(noteTimer); noteTimer = null; store(NKEY, note.value); }
+note.addEventListener('input', () => { clearTimeout(noteTimer); noteTimer = setTimeout(saveNote, 400); });
 note.addEventListener('blur', saveNote);
 window.addEventListener('pagehide', saveNote);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState==='hidden') saveNote(); });
