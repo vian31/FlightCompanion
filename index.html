@@ -380,6 +380,35 @@
   .briefing-text .b-title:first-child { margin-top: 0; }
   .briefing-text .b-quote { font-weight: 700; color: var(--brief); }
 
+  /* Items des blocs de rappel : case à cocher + notes sous le libellé */
+  .cl-item.cl-rappel { display: block; padding: 13px 8px; }
+  .cl-rappel-head { display: flex; align-items: center; gap: 13px; }
+  .cl-rappel-note { font-size: 16px; line-height: 1.45; color: var(--muted); margin-top: 6px; padding-left: 37px; }
+  .cl-rappel-note div + div { margin-top: 4px; }
+  .cl-sec-note {
+    border-top: 1px solid var(--line); padding: 14px 10px;
+    font-size: 16px; line-height: 1.45; color: var(--brief); font-weight: 600;
+  }
+  #apresVol { margin-top: 12px; }
+
+  /* Item à champ litres : saisie + conso calculée */
+  .cl-item.cl-fuel .cl-item-label { text-decoration: none; color: var(--ink); }
+  .fuel-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding-left: 37px; }
+  .fuel-input {
+    width: 100px; font: inherit; font-size: 19px; font-weight: 600; text-align: center;
+    padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--paper); color: var(--ink);
+  }
+  .fuel-input:focus { outline: none; border-color: var(--accent); }
+  .cl-item.cl-fuel.checked .fuel-input { border-color: var(--accent); color: var(--accent); }
+  .fuel-unit { font-size: 16px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+  .fuel-calc { margin-top: 12px; padding-left: 37px; }
+  .fuel-calc-line {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+    font-size: 16px; color: var(--muted); padding: 4px 0;
+  }
+  .fuel-calc-val { font-size: 17px; font-weight: 700; color: var(--ink); }
+
   /* =========================================================
      MÉTÉO
      ========================================================= */
@@ -628,6 +657,9 @@
           <button class="btn-reset reset-round" id="clReset" aria-label="Réinitialiser">↻</button>
         </div>
         <div class="pad pad-top">
+          <!-- Bloc « Avant le vol » — rendu par le module RAPPELS, en tête -->
+          <div id="avantVol"></div>
+
           <div id="checklist"></div>
 
           <!-- Retour de vol (récap horamètre / temps de vol) — repliable -->
@@ -662,6 +694,9 @@
 
             </div></div>
           </div>
+
+          <!-- Bloc « Après le vol » — rendu par le module RAPPELS -->
+          <div id="apresVol"></div>
         </div>
       </section>
 
@@ -803,6 +838,12 @@
           <li>L'horamètre de départ est recopié vers l'arrivée dès que sa section est complète.</li>
           <li>Le bloc « Retour de vol » en bas récapitule le temps de vol et signale les incohérences.</li>
         </ul>
+        <div class="help-sub">Avant / Après le vol</div>
+        <ul class="help-list">
+          <li>« Avant le vol » ouvre la checklist ; « Après le vol » est sous le bloc « Retour de vol ».</li>
+          <li>Saisir les litres embarqués (Plein carburant) et restants coche l'item automatiquement.</li>
+          <li>La conso du vol et la conso horaire se calculent sous « Carburant restant », d'après le temps de vol du bloc « Retour de vol ».</li>
+        </ul>
         <div class="help-sub">Général &amp; Météo</div>
         <ul class="help-list">
           <li>Glisser horizontalement ou toucher les traits en haut pour changer d'onglet.</li>
@@ -883,11 +924,53 @@ Horamètre Arrivée = Noté
 Caches Pitot = En place
   </script>
 
+  <!-- Données des blocs « Avant le vol » / « Après le vol » (édite ce bloc, pas le code)
+       □ = item à cocher · lignes suivantes = notes de l'item · ~ = note de section
+       Le titre de section décide de son emplacement dans l'onglet Checklist :
+       « Avant le vol » -> en tête · « Après le vol » -> sous Retour de vol
+       « Plein carburant » et « Carburant restant » portent un champ litres -->
+  <script type="text/plain" id="rappels-data">
+# Avant le vol
+□ Réservation Aérogest
+□ NAV
+Cartes VAC de la destination : restrictions, consignes particulières, intégration, circuit, hauteurs, ATS, dégagements, activités, avitaillement (FK9: SP98), points de report si CTR…
+Résumé des terrains - Fréquences - SIV
+Altitudes de vol et de sécurité - Espaces aériens traversés
+Limitations opérationnelles : longueur de piste / limitations techniques de l’appareil / particularité de la saison (air moins dense en été, etc…)
+Coucher du soleil / nuit aéro
+□ Emport carburant et masses
+□ ☼ Météo
+METAR + TAF
+Aeroweb: TEMSI - WINTEM
+Windy - vent en route
+□ SIA Sofia Briefing : Cartes AZBA - NOTAM - SUP AIP
+□ Le pilote, sa santé, son matériel (planchette de vol, casque, casquette, lunettes de soleil,...)
+□ Tel chargé / SDVFR à jour
+□ L’avion, son état, sa documentation, infos aéroclub/Aérogest ou pilote précédent
+□ Plein carburant
+□ Masses calculées / vérifiées
+□ Docs avion et pilote à jour et à mettre à bord
+consulter le logbook => remarques / essence / huile / etc.
+□ Aérogest départ en vol
+□ Les conditions sur Muret: manche à air, piste en service, traffic, présence ATS, animaux, évènement particulier…
+
+# Après le vol
+□ Tour avion + flammes en place (pitot, statique, parachute)
+□ Carburant restant
+□ Aérogest Retour de vol (signalement si besoin)
+□ Remplir Logbook de l’avion: 1 ligne par posé complet
+□ Clés au tableau + sacoche avion en place
+□ Où laisser l’avion : hangar ou tarmac ?
+□ Nettoyage
+□ Carnet de vol pilote
+~ Un évènement sécurité à rapporter ? => REXFFA
+  </script>
+
 <script>
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "2.5";
+const APP_VERSION = "2.9";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* =====================================================================
@@ -1426,6 +1509,12 @@ const HDV = (function () {
   // Renvoie les chiffres d'un champ, ou des zéros si le champ n'est pas (encore) monté.
   function digitsOf(name, zeros) { return fields[name] ? fields[name]._digits() : zeros.slice(); }
 
+  // Temps de vol (bloc) en minutes + abonnés prévenus à chaque recalcul
+  // (les items carburant s'en servent pour la conso horaire).
+  let flightMin = 0;
+  const listeners = [];
+  function onRecompute(fn) { listeners.push(fn); fn(flightMin); }
+
   function recompute() {
     const depBloc = digitsOf('bloc-dep', ZERO_BLOC);
     const arrBloc = digitsOf('bloc-arr', ZERO_BLOC);
@@ -1441,6 +1530,7 @@ const HDV = (function () {
 
     let diff = blocToMin(arrBloc) - blocToMin(depBloc);
     if (diff < 0) diff += 24 * 60;
+    flightMin = diff;
     const hh = Math.floor(diff / 60), mm = diff % 60;
     setTxt('recapTdvMin', diff + ' min');
     setTxt('recapTdvHM', pad2(hh) + ' h ' + pad2(mm));
@@ -1459,6 +1549,8 @@ const HDV = (function () {
       totalReasonEl.textContent = reason;
       totalReasonEl.classList.toggle('show', reason !== '');
     }
+
+    listeners.forEach(fn => { try { fn(flightMin); } catch (e) {} });
   }
 
   /* ---- Persistance des saisies ---- */
@@ -1542,7 +1634,249 @@ const HDV = (function () {
 
   recompute();
 
-  return { createField, setNow, copyHoraDepToArr, getDigits, isBlank, resetAll, recompute };
+  return { createField, setNow, copyHoraDepToArr, getDigits, isBlank, resetAll, recompute, onRecompute };
+})();
+
+
+/* =====================================================================
+   RAPPELS — blocs « Avant le vol » (en tête de la checklist) et
+   « Après le vol » (sous Retour de vol). Données : <script id="rappels-data">.
+   Deux items portent un champ litres (Plein carburant / Carburant restant) ;
+   le second affiche la conso du vol et la conso horaire.
+   ===================================================================== */
+const RAPPELS = (function () {
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const NORM = s => s.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ').trim();
+
+  // Titre de section (normalisé) -> conteneur d'accueil dans l'onglet Checklist
+  const TARGETS = { 'avant le vol': 'avantVol', 'apres le vol': 'apresVol' };
+
+  // Items portant un champ « litres », repérés par leur libellé (comme ACTIVE_MAP).
+  // calc : affiche conso du vol et conso horaire sous le champ.
+  const FUEL_MAP = {
+    'plein carburant':   { key: 'dep', unit: 'L à bord' },
+    'carburant restant': { key: 'arr', unit: 'L restants', calc: true }
+  };
+
+  const CHEVRON = '<svg class="cl-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+  const FOLD_DELAY = 1000;   // ms — même repli automatique que les sections checklist
+
+  const STATE_KEY = 'rappels-state';
+  let state = {};
+  (function () {
+    const raw = load(STATE_KEY);
+    if (raw) { try { state = JSON.parse(raw) || {}; } catch (e) { state = {}; } }
+  })();
+  const saveState = () => store(STATE_KEY, JSON.stringify(state));
+
+  const blocks = {};        // hostId -> { sec, el }
+  const fuelHost = {};      // 'dep' | 'arr' -> hostId du bloc qui porte le champ
+  const fuelInputs = {};    // 'dep' | 'arr' -> <input>
+  let calcEls = null;       // { conso, rate } sous « Carburant restant »
+  let flightMin = 0;        // temps de vol (bloc) en minutes, fourni par HDV
+  const wasComplete = {};
+  let building = true;
+
+  const fuelKey = hostId => hostId + '-fuel';
+  const toNum = v => {
+    const n = parseFloat(String(v).replace(',', '.').replace(/[^0-9.]/g, ''));
+    return isFinite(n) ? n : null;
+  };
+  const fmtL = n => n.toFixed(1).replace('.', ',');
+  function fuelValue(k) {
+    const host = fuelHost[k];
+    return host ? toNum(state[fuelKey(host)] || '') : null;
+  }
+
+  function parse(raw) {
+    const sections = [];
+    let sec = null, item = null;
+    raw.replace(/\r\n/g, '\n').split('\n').forEach(rawLine => {
+      const line = rawLine.trim();
+      if (!line) return;
+      if (line.startsWith('#')) {
+        sec = { title: line.slice(1).trim(), items: [], note: null };
+        sections.push(sec); item = null;
+      } else if (!sec) {
+        return;
+      } else if (line.startsWith('~')) {
+        sec.note = line.slice(1).trim(); item = null;
+      } else if (line.startsWith('□')) {
+        item = { label: line.slice(1).trim(), notes: [] };
+        sec.items.push(item);
+      } else if (item) {
+        item.notes.push(line);
+      }
+    });
+    return sections;
+  }
+
+  // Conso du vol = embarqué - restant ; conso horaire = conso / temps de vol.
+  function refreshCalc() {
+    if (!calcEls) return;
+    const dep = fuelValue('dep'), arr = fuelValue('arr');
+    const conso = (dep !== null && arr !== null) ? dep - arr : null;
+    calcEls.conso.textContent = conso === null ? '—' : fmtL(conso) + ' L';
+    const rate = (conso !== null && flightMin > 0) ? conso / (flightMin / 60) : null;
+    calcEls.rate.textContent = rate === null ? '—' : fmtL(rate) + ' L/h';
+  }
+
+  function refresh(hostId) {
+    const b = blocks[hostId];
+    if (!b) return;
+    const total = b.sec.items.length;
+    let done = 0;
+    b.sec.items.forEach((_, i) => { if (state[hostId + '-' + i]) done++; });
+    b.el.querySelector('.cl-count').textContent = done + '/' + total;
+    const complete = done === total;
+    b.el.classList.toggle('complete', complete);
+
+    if (building) { wasComplete[hostId] = complete; return; }
+    // Repli automatique au passage incomplet -> complet, comme la checklist
+    if (complete && !wasComplete[hostId] && b.el.classList.contains('open')) {
+      setTimeout(() => {
+        if (b.el.classList.contains('complete') && b.el.classList.contains('open')) {
+          b.el.classList.remove('open');
+        }
+      }, FOLD_DELAY);
+    }
+    wasComplete[hostId] = complete;
+  }
+
+  function setChecked(hostId, i, row, on) {
+    const key = hostId + '-' + i;
+    if (on) state[key] = true; else delete state[key];
+    saveState();
+    row.classList.toggle('checked', on);
+    refresh(hostId);
+  }
+
+  // Item à champ litres : se valide seul dès qu'une valeur est saisie.
+  function buildFuelItem(row, hostId, i, spec) {
+    fuelHost[spec.key] = hostId;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'fuel-row';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.inputMode = 'decimal';
+    input.className = 'fuel-input';
+    input.placeholder = '0';
+    input.setAttribute('aria-label', 'Litres');
+    input.value = state[fuelKey(hostId)] || '';
+    const unit = document.createElement('span');
+    unit.className = 'fuel-unit';
+    unit.textContent = spec.unit;
+    wrap.append(input, unit);
+    row.appendChild(wrap);
+    fuelInputs[spec.key] = input;
+
+    input.addEventListener('click', e => e.stopPropagation());
+    input.addEventListener('input', () => {
+      const raw = input.value.trim();
+      if (raw) state[fuelKey(hostId)] = raw; else delete state[fuelKey(hostId)];
+      setChecked(hostId, i, row, !!raw);
+      refreshCalc();
+    });
+    // Toucher la ligne amène le clavier sur le champ (pas de coche manuelle).
+    row.addEventListener('click', () => input.focus());
+
+    if (spec.calc) {
+      const calc = document.createElement('div');
+      calc.className = 'fuel-calc';
+      calc.innerHTML = '<div class="fuel-calc-line"><span>Conso du vol</span><span class="fuel-calc-val" id="fuelConso">—</span></div>'
+        + '<div class="fuel-calc-line"><span>Conso horaire</span><span class="fuel-calc-val" id="fuelRate">—</span></div>';
+      row.appendChild(calc);
+      calcEls = { conso: calc.querySelector('#fuelConso'), rate: calc.querySelector('#fuelRate') };
+    }
+  }
+
+  function build(sec, hostId) {
+    const el = document.createElement('div');
+    el.className = 'cl-section';
+
+    const head = document.createElement('div');
+    head.className = 'cl-head';
+    head.innerHTML = CHEVRON + '<div class="cl-title">' + esc(sec.title) + '</div>'
+      + '<div class="cl-count"></div><div class="cl-check">' + CHECK_SVG + '</div>';
+    head.addEventListener('click', () => {
+      const wasOpen = el.classList.contains('open');
+      const scroller = el.closest('.tab');
+      // Accordéon commun à l'onglet : une seule section ouverte à la fois
+      scroller.querySelectorAll('.cl-section.open').forEach(s => s.classList.remove('open'));
+      const total = document.getElementById('totalSection');
+      if (total && scroller.contains(total)) total.classList.add('folded');
+      if (!wasOpen) {
+        el.classList.add('open');
+        setTimeout(() => {
+          const top = scroller.scrollTop + el.getBoundingClientRect().top
+                      - scroller.getBoundingClientRect().top - 8;
+          scroller.scrollTo({ top, behavior: 'smooth' });
+        }, 60);
+      }
+    });
+    el.appendChild(head);
+
+    const body = document.createElement('div'); body.className = 'cl-body';
+    const inner = document.createElement('div'); inner.className = 'cl-body-inner';
+    const pad = document.createElement('div'); pad.className = 'cl-body-pad';
+
+    sec.items.forEach((it, i) => {
+      const spec = FUEL_MAP[NORM(it.label)] || null;
+      const row = document.createElement('div');
+      row.className = 'cl-item cl-rappel' + (spec ? ' cl-fuel' : '') + (state[hostId + '-' + i] ? ' checked' : '');
+      row.innerHTML = '<div class="cl-rappel-head"><div class="cl-checkbox">' + CHECK_SVG + '</div>'
+        + '<div class="cl-item-text"><div class="cl-item-label">' + esc(it.label) + '</div></div></div>'
+        + (it.notes.length
+            ? '<div class="cl-rappel-note">' + it.notes.map(n => '<div>' + esc(n) + '</div>').join('') + '</div>'
+            : '');
+      if (spec) buildFuelItem(row, hostId, i, spec);
+      else row.addEventListener('click', () => setChecked(hostId, i, row, !state[hostId + '-' + i]));
+      pad.appendChild(row);
+    });
+
+    if (sec.note) {
+      const note = document.createElement('div');
+      note.className = 'cl-sec-note';
+      note.textContent = sec.note;
+      pad.appendChild(note);
+    }
+
+    inner.appendChild(pad); body.appendChild(inner); el.appendChild(body);
+    return el;
+  }
+
+  function reset(hostId) {
+    const b = blocks[hostId];
+    if (!b) return;
+    Object.keys(state).forEach(k => { if (k.startsWith(hostId + '-')) delete state[k]; });
+    saveState();
+    b.el.querySelectorAll('.cl-item.checked').forEach(r => r.classList.remove('checked'));
+    b.el.querySelectorAll('.fuel-input').forEach(inp => { inp.value = ''; });
+    delete wasComplete[hostId];
+    refresh(hostId);
+    refreshCalc();
+  }
+  function resetAll() { Object.keys(blocks).forEach(reset); }
+
+  parse(document.getElementById('rappels-data').textContent).forEach(sec => {
+    const hostId = TARGETS[NORM(sec.title)];
+    const host = hostId && document.getElementById(hostId);
+    if (!host) return;
+    const el = build(sec, hostId);
+    blocks[hostId] = { sec, el };
+    host.appendChild(el);
+    refresh(hostId);
+  });
+  building = false;
+
+  // Le temps de vol du bloc « Retour de vol » alimente la conso horaire.
+  HDV.onRecompute(min => { flightMin = min; refreshCalc(); });
+  refreshCalc();
+
+  return { reset, resetAll };
 })();
 
 
@@ -1656,13 +1990,13 @@ const HDV = (function () {
         + (hasItems ? '<div class="cl-count"></div><div class="cl-check">' + CHECK_SVG + '</div>' : '');
       head.addEventListener('click', () => {
         const wasOpen = section.classList.contains('open');
-        container.querySelectorAll('.cl-section.open').forEach(s => s.classList.remove('open'));
+        const scroller = section.closest('.tab');
+        scroller.querySelectorAll('.cl-section.open').forEach(s => s.classList.remove('open'));
         const total = document.getElementById('totalSection');
         if (total) total.classList.add('folded');
         if (!wasOpen) {
           section.classList.add('open');
           // Amène le bloc ouvert en haut de la zone visible (après l'animation)
-          const scroller = section.closest('.tab');
           setTimeout(() => {
             if (!scroller) return;
             const top = scroller.scrollTop + section.getBoundingClientRect().top
@@ -1847,6 +2181,7 @@ const HDV = (function () {
 
   document.getElementById('clReset').addEventListener('click', () => {
     state = {}; saveState();
+    RAPPELS.resetAll();                // décoche les blocs Avant/Après le vol
     HDV.resetAll();                 // remet les heures/horamètres à zéro
     Object.keys(wasComplete).forEach(k => delete wasComplete[k]);
     build();                        // reconstruit (roues remises à zéro, vert effacé)
@@ -1865,9 +2200,9 @@ const HDV = (function () {
         const willOpen = totalSection.classList.contains('folded');
         totalSection.classList.toggle('folded');
         if (willOpen) {
-          // Replie les sections de checklist, comme un accordéon commun
-          document.querySelectorAll('#checklist .cl-section.open').forEach(s => s.classList.remove('open'));
+          // Replie les sections de l'onglet, comme un accordéon commun
           const scroller = totalSection.closest('.tab');
+          scroller.querySelectorAll('.cl-section.open').forEach(s => s.classList.remove('open'));
           setTimeout(() => {
             if (!scroller) return;
             const top = scroller.scrollTop + totalSection.getBoundingClientRect().top
