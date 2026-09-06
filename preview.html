@@ -953,6 +953,7 @@
         <div class="help-sub">Mes derniers vols</div>
         <ul class="help-list">
           <li>« Clôturer le vol », tout en bas de la checklist, demande le lieu de départ et d'arrivée (5 caractères maximum, en majuscules) puis archive le vol.</li>
+          <li>Le départ est pré-rempli avec l'arrivée du vol précédent, et reste modifiable.</li>
           <li>Le vol enregistré fige les heures bloc, les horamètres, le temps de vol, le carburant et la conso horaire.</li>
           <li>Les 5 derniers vols sont conservés, le plus récent en tête ; un seul bloc s'ouvre à la fois.</li>
           <li>La clôture ne remet pas la checklist à zéro : utiliser ↻ pour repartir sur un vol vierge.</li>
@@ -1083,7 +1084,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.0";
+const APP_VERSION = "3.1";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* =====================================================================
@@ -2482,6 +2483,12 @@ const FLIGHTS = (function () {
     msgEl.textContent = text;
     msgEl.classList.toggle('show', text !== '');
   }
+  // L'avion repart d'où il s'est posé : le départ est pré-rempli avec
+  // l'arrivée du dernier vol clôturé. Le champ reste modifiable.
+  function lastArrival() {
+    const arr = sorted(loadAll());
+    return arr.length ? (arr[0].to || '') : '';
+  }
   function setOpen(on) {
     panel.classList.toggle('open', on);
     if (!on) msg('');
@@ -2491,10 +2498,12 @@ const FLIGHTS = (function () {
     const willOpen = !panel.classList.contains('open');
     setOpen(willOpen);
     if (!willOpen) return;
+    if (!fromEl.value) fromEl.value = lastArrival();
     setTimeout(() => {
       const scroller = panel.closest('.tab');
       if (scroller) scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
-      fromEl.focus();
+      // Départ déjà connu : le clavier s'ouvre directement sur l'arrivée.
+      (fromEl.value ? toEl : fromEl).focus();
     }, 320);
   });
   document.getElementById('cfCancel').addEventListener('click', () => setOpen(false));
