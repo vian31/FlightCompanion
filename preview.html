@@ -911,6 +911,7 @@
         <ul class="help-list">
           <li>« Clôturer le vol », tout en bas de la checklist, demande le lieu de départ et d'arrivée (5 caractères maximum, en majuscules) puis archive le vol.</li>
           <li>Le départ est pré-rempli avec l'arrivée du vol précédent, et reste modifiable.</li>
+          <li>La clôture refuse un vol incomplet : trajet, heures bloc et horamètres sont obligatoires, et le temps de vol ne peut pas dépasser l'horamètre.</li>
           <li>Le vol enregistré fige les heures bloc, les horamètres, le temps de vol, le carburant et la conso horaire.</li>
           <li>Les 5 derniers vols sont conservés, le plus récent en tête ; un seul bloc s'ouvre à la fois.</li>
           <li>La clôture ne remet pas la checklist à zéro : utiliser ↻ pour repartir sur un vol vierge.</li>
@@ -1041,7 +1042,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.2";
+const APP_VERSION = "3.3";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* =====================================================================
@@ -1578,7 +1579,15 @@ const HDV = (function () {
   const ZERO_HORA = [0, 0, 0, 0, 0, 0];
 
   const blocToMin = d => (d[0]*10 + d[1]) * 60 + (d[2]*10 + d[3]);
+  const horaToCent = d => (d[0]*1000 + d[1]*100 + d[2]*10 + d[3]) * 100 + (d[4]*10 + d[5]);
   const pad2 = n => String(n).padStart(2, '0');
+
+  // Temps compteur en minutes : l'horamètre compte en centièmes d'heure.
+  function horaMinutes(dep, arr) {
+    let dc = horaToCent(arr) - horaToCent(dep);
+    if (dc < 0) dc = 0;
+    return Math.round(Math.floor(dc / 100) * 60 + (dc % 100) * 60 / 100);
+  }
   function todayStr() { const d = new Date(); return pad2(d.getDate()) + '/' + pad2(d.getMonth()+1) + '/' + d.getFullYear(); }
 
   // Renvoie les chiffres d'un champ, ou des zéros si le champ n'est pas (encore) monté.
@@ -1670,13 +1679,18 @@ const HDV = (function () {
   }
   function getDigits(fieldName) { return fields[fieldName] ? fields[fieldName]._digits() : null; }
   // Photographie du vol en cours, figée à la clôture (voir module FLIGHTS).
+  // horaMin sert au contrôle de cohérence : le temps compteur ne peut pas
+  // être inférieur au temps de vol (bloc).
   function snapshot() {
+    const horaDep = digitsOf('hora-dep', ZERO_HORA);
+    const horaArr = digitsOf('hora-arr', ZERO_HORA);
     return {
       date:    todayStr(),
       blocDep: digitsOf('bloc-dep', ZERO_BLOC),
       blocArr: digitsOf('bloc-arr', ZERO_BLOC),
-      horaDep: digitsOf('hora-dep', ZERO_HORA),
-      horaArr: digitsOf('hora-arr', ZERO_HORA),
+      horaDep: horaDep,
+      horaArr: horaArr,
+      horaMin: horaMinutes(horaDep, horaArr),
       tdvMin:  flightMin
     };
   }
@@ -2441,6 +2455,17 @@ const FLIGHTS = (function () {
     }
     const s = HDV.snapshot();
     if (s.tdvMin <= 0) { msg('Heures bloc non renseignées : le temps de vol est nul.'); return; }
+    // L'horamètre est obligatoire, et il tourne au moins aussi longtemps
+    // que le temps bloc : sinon un compteur a été oublié ou mal relevé.
+    const blank = d => d.every(x => x === 0);
+    if (blank(s.horaDep) || blank(s.horaArr)) {
+      msg('Horamètre de départ ou d\'arrivée non renseigné.');
+      return;
+    }
+    if (s.tdvMin > s.horaMin) {
+      msg('Temps de vol supérieur à l\'horamètre : vérifier les compteurs.');
+      return;
+    }
 
     const fuel = RAPPELS.snapshot();
     const id = add({
