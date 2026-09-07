@@ -935,6 +935,36 @@
     </div>
   </div>
 
+  <!-- ==================== POPUP INFOS VOL (item Aérogest Retour de vol) ==================== -->
+  <div class="modal-overlay" id="flightInfoModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="modal-grip" id="flightInfoGrip"></div>
+        <button class="modal-close" id="flightInfoClose" aria-label="Fermer">✕</button>
+      </div>
+      <div class="section total" style="margin-bottom: 0">
+        <div class="recap-block">
+          <div class="recap-title">Vol (heure locale)</div>
+          <div class="recap-line"><span class="recap-key">Date</span><span class="recap-val" id="fiDate">—</span></div>
+          <div class="recap-line"><span class="recap-key">Bloc départ</span><span class="recap-val" id="fiBlocDep">—</span></div>
+          <div class="recap-line"><span class="recap-key">Bloc arrivée</span><span class="recap-val" id="fiBlocArr">—</span></div>
+        </div>
+        <div class="recap-block">
+          <div class="recap-title">Compteur</div>
+          <div class="recap-line recap-counter">
+            <span class="recap-key">Horamètre</span>
+            <span class="recap-box" id="fiHoraDep">—</span>
+            <span class="recap-box" id="fiHoraArr">—</span>
+          </div>
+        </div>
+        <div class="recap-block">
+          <div class="recap-title">Temps de vol</div>
+          <div class="recap-tdv"><span class="recap-tdv-key">Horaire</span><span class="recap-tdv-val" id="fiTdv">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 
   <!-- Données checklist (édite ce bloc, pas le code) -->
   <script type="text/plain" id="checklist-data">
@@ -1050,7 +1080,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.8";
+const APP_VERSION = "3.10";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* ---- Recharger la dernière version -----------------------------------
@@ -1169,6 +1199,11 @@ const NORM = s => String(s).toLowerCase()
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .replace(/\s+/g, ' ').trim();
 const pad2 = n => String(n).padStart(2, '0');
+// Formatage d'affichage d'une heure bloc / horamètre à partir de ses chiffres (roues).
+const fmtBloc = d => `${d[0]}${d[1]}:${d[2]}${d[3]}`;
+const fmtHora = d => `${d[0]}${d[1]}${d[2]}${d[3]},${d[4]}${d[5]}`;
+// Temps de vol (minutes) -> format horaire « H h MM ».
+const hm = min => pad2(Math.floor(min / 60)) + ' h ' + pad2(min % 60);
 const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 const CHEVRON_SVG = '<svg class="cl-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
 // Repli automatique d'une section qui vient d'être complétée : laisse le
@@ -1797,6 +1832,25 @@ const HDV = (function () {
 })();
 
 
+/* ---- Popup infos vol (item « Aérogest Retour de vol ») ---- */
+const flightInfoModal = document.getElementById('flightInfoModal');
+function openFlightInfo() {
+  const s = HDV.snapshot();
+  document.getElementById('fiDate').textContent = s.date;
+  document.getElementById('fiBlocDep').textContent = fmtBloc(s.blocDep);
+  document.getElementById('fiBlocArr').textContent = fmtBloc(s.blocArr);
+  document.getElementById('fiHoraDep').textContent = fmtHora(s.horaDep);
+  document.getElementById('fiHoraArr').textContent = fmtHora(s.horaArr);
+  document.getElementById('fiTdv').textContent = hm(s.tdvMin);
+  flightInfoModal.classList.add('on');
+}
+function closeFlightInfo() { flightInfoModal.classList.remove('on'); }
+document.getElementById('flightInfoClose').addEventListener('click', closeFlightInfo);
+document.getElementById('flightInfoGrip').addEventListener('click', closeFlightInfo);
+flightInfoModal.addEventListener('click', e => { if (e.target === flightInfoModal) closeFlightInfo(); });
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && flightInfoModal.classList.contains('on')) closeFlightInfo(); });
+
+
 /* =====================================================================
    RAPPELS — blocs « Avant le vol » (en tête de la checklist) et
    « Après le vol » (sous Retour de vol). Données : <script id="rappels-data">.
@@ -1982,8 +2036,14 @@ const RAPPELS = (function () {
         + (it.notes.length
             ? '<div class="cl-rappel-note">' + it.notes.map(n => '<div>' + esc(n) + '</div>').join('') + '</div>'
             : '');
+      // « Aérogest Retour de vol » : affiche en plus un rappel des heures
+      // enregistrées (bloc, horamètre), utiles pour le signalement.
+      const showInfo = NORM(it.label).startsWith('aerogest retour de vol');
       if (spec) buildFuelItem(row, hostId, i, spec);
-      else row.addEventListener('click', () => setChecked(hostId, i, row, !state[hostId + '-' + i]));
+      else row.addEventListener('click', () => {
+        if (showInfo) openFlightInfo();
+        setChecked(hostId, i, row, !state[hostId + '-' + i]);
+      });
       pad.appendChild(row);
     });
 
@@ -2005,6 +2065,7 @@ const RAPPELS = (function () {
     saveState();
     b.el.querySelectorAll('.cl-item.checked').forEach(r => r.classList.remove('checked'));
     b.el.querySelectorAll('.fuel-input').forEach(inp => { inp.value = ''; });
+    b.el.classList.remove('open');
     delete wasComplete[hostId];
     refresh(hostId);
     refreshCalc();
@@ -3095,7 +3156,7 @@ window.addEventListener('pagehide', saveNote);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState==='hidden') saveNote(); });
 note.addEventListener('focus', () => { setTimeout(() => { try { note.scrollIntoView({behavior:'smooth', block:'center'}); } catch(e) { note.scrollIntoView(); } }, 300); });
 if (window.visualViewport) { window.visualViewport.addEventListener('resize', () => { if (document.activeElement===note) { try { note.scrollIntoView({behavior:'smooth', block:'center'}); } catch(e) {} } }); }
-document.getElementById('clrNote').addEventListener('click', () => { note.value = ''; drop(NKEY); note.focus(); });
+document.getElementById('clrNote').addEventListener('click', () => { note.value = ''; drop(NKEY); });
 })();
 
 </script>
