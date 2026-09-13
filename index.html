@@ -754,6 +754,13 @@
      plus tard) : si #splash n'existe plus ou porte déjà .out, ces règles
      ne matchent plus et le contenu retrouve son opacité normale — aucun
      risque de rester masqué si un script plante ailleurs sur la page. */
+  /* Témoin invisible : sa hauteur vaut la marge de sécurité haute, seul moyen
+     de lire env(safe-area-inset-top) depuis le JS (diagnostic « Découpe »). */
+  .sa-probe {
+    position: fixed; top: 0; left: 0; width: 0; height: env(safe-area-inset-top, 0px);
+    visibility: hidden; pointer-events: none;
+  }
+
   .tabbar, .viewport { opacity: 1; }
   body:has(#splash:not(.out)) .tabbar,
   body:has(#splash:not(.out)) .viewport { opacity: 0; }
@@ -769,6 +776,8 @@
   <!-- Écran d'accueil : instrument de bord animé (rendu jQuery-Flight-Indicators
        d'origine, voir splash-instruments.js), tiré au sort à chaque ouverture,
        durée réglable dans les paramètres. Le contenu est injecté par JS. -->
+  <div class="sa-probe" id="saProbe" aria-hidden="true"></div>
+
   <div class="splash" id="splash" aria-hidden="true">
     <div class="splash-instr-mount" id="splashInstrMount"></div>
     <div class="splash-brand" id="splashBrand"></div>
@@ -982,6 +991,7 @@
             <button data-val="0">Bande noire</button>
           </div>
           <div class="setting-hint">« Écran entier » demande le plein écran au premier toucher pour passer sous la découpe. Si Android refuse, la bande noire reste : sa couleur, elle, n'est pas modifiable depuis la page.</div>
+          <div class="setting-hint" id="cutoutDiag"></div>
         </div>
 
         <div class="setting">
@@ -1176,7 +1186,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.16";
+const APP_VERSION = "3.17";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* ---- Recharger la dernière version -----------------------------------
@@ -1396,24 +1406,39 @@ if (settings.order.indexOf('vols') === -1) {
    page passe en plein écran par l'API Fullscreen. Celle-ci exige un
    geste de l'utilisateur, d'où la demande au premier toucher.
    ===================================================================== */
+// Ce que la dernière tentative a donné, relu par le diagnostic des réglages :
+// sans ça, un refus d'Android est parfaitement silencieux.
+let cutoutInfo = 'pas encore tenté';
+const GESTES_FS = ['pointerdown', 'touchstart', 'click'];
+
 (function () {
-  if (settings.fullScreen !== '1') return;
-  if (!window.matchMedia) return;
+  if (settings.fullScreen !== '1') { cutoutInfo = 'réglé sur « Bande noire »'; return; }
+  if (!window.matchMedia) { cutoutInfo = 'matchMedia absent'; return; }
   // Inutile — et intrusif — dans un onglet de navigateur : réservé à l'app installée.
   const installee = matchMedia('(display-mode: fullscreen)').matches ||
                     matchMedia('(display-mode: standalone)').matches;
-  if (!installee) return;
+  if (!installee) { cutoutInfo = 'onglet navigateur : non tenté'; return; }
 
-  function fini() { window.removeEventListener('pointerdown', demander); }
+  function fini() { GESTES_FS.forEach(g => window.removeEventListener(g, demander, true)); }
   function demander() {
     const el = document.documentElement;
-    if (document.fullscreenElement || !el.requestFullscreen) { fini(); return; }
+    if (document.fullscreenElement) { cutoutInfo = 'accordé'; fini(); return; }
+    if (!el.requestFullscreen) { cutoutInfo = 'API Fullscreen absente'; fini(); return; }
     try {
       const p = el.requestFullscreen({ navigationUI: 'hide' });
-      if (p && p.then) p.then(fini, () => {});   // on retente au toucher suivant si refusé
-    } catch (e) {}
+      if (p && p.then) {
+        p.then(() => { cutoutInfo = 'accordé'; fini(); },
+               (err) => { cutoutInfo = 'refusé (' + ((err && err.name) || 'sans motif') + ')'; });
+      } else {
+        cutoutInfo = 'demandé (pas de promesse)';
+      }
+    } catch (e) {
+      cutoutInfo = 'erreur : ' + ((e && e.name) || e);
+    }
   }
-  window.addEventListener('pointerdown', demander);
+  // Capture : un gestionnaire de l'app qui stoppe la propagation ne doit pas
+  // pouvoir nous priver du geste, seul moment où l'API est autorisée.
+  GESTES_FS.forEach(g => window.addEventListener(g, demander, true));
 })();
 
 /* =====================================================================
@@ -1751,7 +1776,42 @@ document.querySelectorAll('[data-setting]').forEach(group => {
 /* ---- Popup ---- */
 const settingsModal = document.getElementById('settingsModal');
 const modalPanel = settingsModal.querySelector('.modal');
-function openModal() { settingsModal.classList.add('on'); }
+// Diagnostic de la découpe : rien de tout ça n'est observable autrement sur
+// le téléphone, où il n'y a ni console ni barre d'adresse.
+function majDiagDecoupe() {
+  const ligne = document.getElementById('cutoutDiag');
+  if (!ligne) return;
+  let mode = 'inconnu';
+  if (window.matchMedia) {
+    ['fullscreen', 'standalone', 'minimal-ui', 'browser']
+      .forEach(m => { if (matchMedia('(display-mode: ' + m + ')').matches) mode = m; });
+  }
+  const probe = document.getElementById('saProbe');
+  const marge = probe ? Math.round(probe.getBoundingClientRect().height) : -1;
+  ligne.textContent = 'Diagnostic — affichage : ' + mode +
+    ' · plein écran : ' + (document.fullscreenElement ? 'oui' : 'non') +
+    ' · marge haute : ' + marge + ' px' +
+    ' · écran : ' + window.innerWidth + '×' + window.innerHeight +
+    ' / ' + screen.width + '×' + screen.height +
+    ' · tentative : ' + cutoutInfo;
+}
+// Toucher la ligne la recopie : plus simple que de la retaper depuis le téléphone.
+(function () {
+  const ligne = document.getElementById('cutoutDiag');
+  if (!ligne) return;
+  ligne.style.cursor = 'pointer';
+  ligne.addEventListener('click', () => {
+    const texte = ligne.textContent;
+    try {
+      navigator.clipboard.writeText(texte).then(() => {
+        ligne.textContent = 'Copié.';
+        setTimeout(majDiagDecoupe, 1200);
+      }, () => {});
+    } catch (e) {}
+  });
+})();
+
+function openModal() { settingsModal.classList.add('on'); majDiagDecoupe(); }
 function closeModal() { settingsModal.classList.remove('on'); }
 document.getElementById('openSettings').addEventListener('click', openModal);
 document.getElementById('modalClose').addEventListener('click', closeModal);
