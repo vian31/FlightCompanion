@@ -141,7 +141,10 @@ if (HAS_LS) (function () {
   async function runSync(manual) {
     const cfg = getConfig();
     if (!cfg.token) { if (manual) setStatus('Ajoute un jeton GitHub pour synchroniser.', true); return; }
-    if (syncing) return;
+    // Cycle déjà en cours : on ne l'empile pas, on repasse plus tard —
+    // sans cela un vol clôturé pendant une synchro attendrait la prochaine
+    // ouverture de l'app pour partir.
+    if (syncing) { if (!manual) scheduleDeferredSync(); return; }
     syncing = true;
     setStatus('Synchronisation…');
     try {
@@ -177,12 +180,19 @@ if (HAS_LS) (function () {
         else gistId = await createGist(toWriteRemote, cfg.token);
       }
 
-      cfg.gistId = gistId;
-      cfg.last = Date.now();
-      saveConfig(cfg);
-      setStatus(fmtLast(cfg.last));
+      // Relecture de la config : le jeton a pu être retouché pendant le
+      // cycle, réécrire l'instantané du début l'effacerait.
+      const frais = getConfig();
+      frais.gistId = gistId;
+      frais.last = Date.now();
+      saveConfig(frais);
+      setStatus(fmtLast(frais.last));
     } catch (e) {
-      setStatus((e && e.message) || 'Erreur de synchronisation.', true);
+      // fetch rejette avec un TypeError quand la liaison manque : le
+      // message du navigateur est en anglais, on le remplace.
+      setStatus(e instanceof TypeError
+        ? 'Réseau indisponible : la synchro réessaiera.'
+        : ((e && e.message) || 'Erreur de synchronisation.'), true);
     } finally {
       syncing = false;
     }
