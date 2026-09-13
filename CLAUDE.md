@@ -57,9 +57,21 @@ deux, et il ne survit pas à la validation.
 - Les appels météo (avwx.rest) ne sont jamais interceptés ni mis en
   cache : une observation périmée servie de mémoire serait
   dangereuse.
-- Le manifeste PWA est construit en JS puis servi via un Blob : ses
-  URL (`id`, `start_url`, `scope`) doivent rester **absolues**, une
-  URL relative ne peut pas se résoudre depuis un `blob:`.
+- Le manifeste PWA est un **vrai fichier**, `manifest.webmanifest`,
+  avec ses icônes (`icon-192.png`, `icon-512.png`) à côté. Surtout
+  pas un `blob:` : Chrome relit le manifeste en tâche de fond pour
+  mettre à jour l'app déjà installée (couleur de barre, mode
+  d'affichage, icône), et un `blob:` n'est lisible que depuis la
+  page qui l'a créé — les changements ne seraient jamais repris.
+- `display: "fullscreen"` : sur Android, une PWA installée ne sait
+  pas dessiner sous les barres système (limite Chromium connue), et
+  `standalone` laisse donc des bandes noires en haut et en bas.
+  Le plein écran les supprime ; les barres restent accessibles au
+  glissement depuis le bord.
+- Un changement de manifeste n'arrive pas tout de suite sur l'app
+  installée : Chrome la met à jour au mieux une fois par jour. Pour
+  forcer, désinstaller puis réinstaller l'icône (ou `about://webapks`
+  → bouton « Update »).
 - Les réglages proposent « Recharger la dernière version » : c'est
   le seul moyen de rafraîchir une app installée, qui n'a ni barre
   d'adresse ni tirer-pour-rafraîchir.
