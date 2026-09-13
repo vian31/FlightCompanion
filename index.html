@@ -976,6 +976,15 @@
         </div>
 
         <div class="setting">
+          <div class="setting-label">Découpe caméra</div>
+          <div class="seg-toggle" data-setting="fullScreen">
+            <button data-val="1">Écran entier</button>
+            <button data-val="0">Bande noire</button>
+          </div>
+          <div class="setting-hint">« Écran entier » demande le plein écran au premier toucher pour passer sous la découpe. Si Android refuse, la bande noire reste : sa couleur, elle, n'est pas modifiable depuis la page.</div>
+        </div>
+
+        <div class="setting">
           <div class="setting-label">Application</div>
           <button class="btn-update" id="btnUpdate">Recharger la dernière version</button>
           <div class="setting-hint" id="updateHint"></div>
@@ -1167,7 +1176,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.15";
+const APP_VERSION = "3.16";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* ---- Recharger la dernière version -----------------------------------
@@ -1363,6 +1372,8 @@ const settings = {
   font:    savedS.font    || 'system',
   // durée de l'animation d'accueil (instrument de bord) : '0' = désactivée
   splashDuration: savedS.splashDuration || '2',
+  // plein écran sous la découpe caméra : '1' = demandé, '0' = laissé à Android
+  fullScreen: savedS.fullScreen || '1',
   // onglets visibles : objet id -> bool (par défaut tous visibles)
   tabs: Object.assign({ checklist: true, vols: true, meteo: true }, savedS.tabs || {}),
   // ordre d'affichage des onglets (liste d'ids)
@@ -1376,6 +1387,34 @@ if (settings.order.indexOf('vols') === -1) {
   settings.order.splice(iCl >= 0 ? iCl + 1 : settings.order.length, 0, 'vols');
   saveSettings();
 }
+
+/* =====================================================================
+   DÉCOUPE CAMÉRA — Android laisse une bande noire à l'emplacement de la
+   découpe tant que la fenêtre n'est pas en « short edges ». Une app
+   installée n'y a pas droit via le manifeste (limite Chromium connue) :
+   `viewport-fit=cover` n'est pris en compte pour la découpe que si la
+   page passe en plein écran par l'API Fullscreen. Celle-ci exige un
+   geste de l'utilisateur, d'où la demande au premier toucher.
+   ===================================================================== */
+(function () {
+  if (settings.fullScreen !== '1') return;
+  if (!window.matchMedia) return;
+  // Inutile — et intrusif — dans un onglet de navigateur : réservé à l'app installée.
+  const installee = matchMedia('(display-mode: fullscreen)').matches ||
+                    matchMedia('(display-mode: standalone)').matches;
+  if (!installee) return;
+
+  function fini() { window.removeEventListener('pointerdown', demander); }
+  function demander() {
+    const el = document.documentElement;
+    if (document.fullscreenElement || !el.requestFullscreen) { fini(); return; }
+    try {
+      const p = el.requestFullscreen({ navigationUI: 'hide' });
+      if (p && p.then) p.then(fini, () => {});   // on retente au toucher suivant si refusé
+    } catch (e) {}
+  }
+  window.addEventListener('pointerdown', demander);
+})();
 
 /* =====================================================================
    ÉCRAN D'ACCUEIL — tire un instrument au sort et l'anime
@@ -1688,6 +1727,11 @@ function applySettings() {
     const paper = getComputedStyle(document.documentElement).getPropertyValue('--paper').trim();
     if (paper) document.querySelector('meta[name="theme-color"]').setAttribute('content', paper);
   } catch (e) {}
+  // Repasser sur « Bande noire » ressort du plein écran tout de suite, pour
+  // juger de l'effet sans relancer l'app.
+  if (settings.fullScreen !== '1' && document.fullscreenElement) {
+    try { document.exitFullscreen(); } catch (e) {}
+  }
   document.querySelectorAll('[data-setting]').forEach(group => {
     const key = group.dataset.setting;
     group.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.val === settings[key]));

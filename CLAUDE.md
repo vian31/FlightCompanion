@@ -68,6 +68,12 @@ deux, et il ne survit pas à la validation.
   `standalone` laisse donc des bandes noires en haut et en bas.
   Le plein écran les supprime ; les barres restent accessibles au
   glissement depuis le bord.
+- Reste alors la **découpe caméra**, qu'Android laisse en noir hors
+  de la page : sa couleur n'est pas accessible au CSS. Chromium ne
+  tient compte de `viewport-fit=cover` pour la découpe que si la page
+  passe en plein écran par l'**API Fullscreen** — d'où la demande au
+  premier toucher (réglage « Découpe caméra »), l'API exigeant un
+  geste. Sans effet en onglet, où on ne la déclenche pas.
 - Un changement de manifeste n'arrive pas tout de suite sur l'app
   installée : Chrome la met à jour au mieux une fois par jour. Pour
   forcer, désinstaller puis réinstaller l'icône (ou `about://webapks`
