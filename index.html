@@ -713,7 +713,11 @@
   .splash {
     position: fixed; inset: 0; z-index: 100;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 22px; background: #14202b;
+    gap: 22px;
+    /* Noir, comme la bande que laisse Android à l'emplacement de la découpe :
+       au lancement, rien n'a encore été touché, donc pas de plein écran — la
+       bande se confond avec l'écran d'accueil au lieu de le trancher. */
+    background: #000;
     opacity: 1; transition: opacity 0.4s ease;
   }
   .splash.out { opacity: 0; pointer-events: none; }
@@ -1186,7 +1190,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.17";
+const APP_VERSION = "3.18";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* ---- Recharger la dernière version -----------------------------------
@@ -1405,6 +1409,10 @@ if (settings.order.indexOf('vols') === -1) {
    `viewport-fit=cover` n'est pris en compte pour la découpe que si la
    page passe en plein écran par l'API Fullscreen. Celle-ci exige un
    geste de l'utilisateur, d'où la demande au premier toucher.
+
+   Android sort du plein écran dès qu'on quitte l'app : les écouteurs
+   restent donc armés pour toute la session, sinon le retour dans l'app
+   resterait définitivement avec la bande noire.
    ===================================================================== */
 // Ce que la dernière tentative a donné, relu par le diagnostic des réglages :
 // sans ça, un refus d'Android est parfaitement silencieux.
@@ -1419,15 +1427,14 @@ const GESTES_FS = ['pointerdown', 'touchstart', 'click'];
                     matchMedia('(display-mode: standalone)').matches;
   if (!installee) { cutoutInfo = 'onglet navigateur : non tenté'; return; }
 
-  function fini() { GESTES_FS.forEach(g => window.removeEventListener(g, demander, true)); }
   function demander() {
     const el = document.documentElement;
-    if (document.fullscreenElement) { cutoutInfo = 'accordé'; fini(); return; }
-    if (!el.requestFullscreen) { cutoutInfo = 'API Fullscreen absente'; fini(); return; }
+    if (document.fullscreenElement) return;          // déjà bon : rien à faire
+    if (!el.requestFullscreen) { cutoutInfo = 'API Fullscreen absente'; return; }
     try {
       const p = el.requestFullscreen({ navigationUI: 'hide' });
       if (p && p.then) {
-        p.then(() => { cutoutInfo = 'accordé'; fini(); },
+        p.then(() => { cutoutInfo = 'accordé'; },
                (err) => { cutoutInfo = 'refusé (' + ((err && err.name) || 'sans motif') + ')'; });
       } else {
         cutoutInfo = 'demandé (pas de promesse)';
@@ -1437,8 +1444,21 @@ const GESTES_FS = ['pointerdown', 'touchstart', 'click'];
     }
   }
   // Capture : un gestionnaire de l'app qui stoppe la propagation ne doit pas
-  // pouvoir nous priver du geste, seul moment où l'API est autorisée.
+  // pouvoir nous priver du geste, seul moment où l'API est autorisée. Jamais
+  // retirés : au retour dans l'app, le plein écran est à redemander.
   GESTES_FS.forEach(g => window.addEventListener(g, demander, true));
+
+  // Tentative sans attendre de toucher, quand le navigateur nous accorde déjà
+  // une activation (au lancement, au retour au premier plan) : l'écran
+  // d'accueil passe alors en plein écran sans rien toucher. Sans activation on
+  // ne tente rien, pour ne pas polluer la console d'un refus certain.
+  function tenterSansGeste() {
+    if (navigator.userActivation && navigator.userActivation.isActive) demander();
+  }
+  tenterSansGeste();
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) tenterSansGeste();
+  });
 })();
 
 /* =====================================================================
