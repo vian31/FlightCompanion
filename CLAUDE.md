@@ -6,8 +6,8 @@
 - Avant tout push : vérifier que le JS parse (`node --check` sur le
   bloc <script> extrait) et que la page se charge sans erreur console
   (Chromium en 412x900, la taille d'un téléphone).
-- Incrémenter APP_VERSION à chaque commit qui touche `index.html`
-  ou `preview.html`.
+- Incrémenter APP_VERSION à chaque commit qui touche `index.html`,
+  `preview.html`, ou un de leurs fichiers annexes.
 - Message de commit court, en français, décrivant l'effet
   visible pour l'utilisateur.
 - Résumer le diff dans la conversation après le push, captures
@@ -18,26 +18,30 @@
 Pour une refonte (nouvel onglet, nouvelle fonction), ne pas toucher
 `index.html` directement :
 
-1. Copier `index.html` en `preview.html` et y faire tout le travail.
-2. Pousser `preview.html` sur `main` pour un essai sur le téléphone.
+1. Copier `index.html` en `preview.html` et y faire tout le travail
+   — y compris, si besoin, des fichiers annexes same-origin ajoutés
+   à côté (voir « Contraintes du projet » : plusieurs fichiers sont
+   permis).
+2. Pousser `preview.html` (et ses fichiers annexes) sur `main` pour
+   un essai sur le téléphone.
 3. Une fois validé, reporter dans `index.html` et supprimer
-   `preview.html` dans le même commit.
+   `preview.html` dans le même commit ; les fichiers annexes de
+   `preview.html` deviennent alors ceux d'`index.html`.
 
 `preview.html` est un fichier de passage : il n'en existe jamais
 deux, et il ne survit pas à la validation.
 
 # Contraintes du projet
 
-- L'app tient dans `index.html`, auto-contenu : styles, scripts,
-  icônes et données à l'intérieur. Pas de dépendance externe au
-  runtime (CDN, bibliothèque, police distante), pas de fetch()
-  vers un fichier local.
-- Seule exception : `sw.js`, le service worker, à côté de
-  `index.html`. Un service worker ne peut pas être chargé depuis
-  un blob: ni un data: — il lui faut un vrai fichier same-origin.
-  N'ajouter d'autres fichiers que pour une contrainte technique
-  du même ordre, jamais par confort.
-- Données embarquées via <script type="text/plain">.
+- L'app peut être répartie sur plusieurs fichiers (styles, scripts,
+  données…) du moment qu'ils restent en local, servis à côté
+  d'`index.html` — same-origin, jamais de CDN, de bibliothèque ou
+  de police distante : l'app tourne hors ligne, en vol.
+- `sw.js` reste par exemple un fichier à part : un service worker
+  ne peut pas être chargé depuis un blob: ni un data:, il lui faut
+  un vrai fichier same-origin.
+- Données embarquées via <script type="text/plain">, ou dans un
+  fichier séparé same-origin si c'est plus lisible.
 - Taille de police minimale : 16px partout.
 - Cible : Android, usage en vol, hors ligne.
 
