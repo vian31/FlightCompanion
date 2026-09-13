@@ -698,9 +698,11 @@
   }
 
   /* =========================================================
-     ÉCRAN D'ACCUEIL — horizon artificiel animé au lancement
-     Horizon inspiré de jQuery-Flight-Indicators (S. Matton, GPLv3),
-     redessiné en SVG/CSS pur pour rester auto-contenu dans index.html.
+     ÉCRAN D'ACCUEIL — instrument de bord animé, tiré au sort à
+     chaque ouverture (horizon, cap, badin, variomètre, altimètre,
+     indicateur de virage). Inspiré de jQuery-Flight-Indicators
+     (S. Matton, GPLv3), redessiné en SVG/CSS pur pour rester
+     auto-contenu dans index.html.
      ========================================================= */
   .splash {
     position: fixed; inset: 0; z-index: 100;
@@ -709,56 +711,127 @@
     opacity: 1; transition: opacity 0.4s ease;
   }
   .splash.out { opacity: 0; pointer-events: none; }
-  .splash-horizon { width: min(58vw, 220px); height: min(58vw, 220px); opacity: 0; }
-  .splash.run .splash-horizon {
+  /* `hidden` n'existe pas sur SVGElement (propriété réservée à HTMLElement) :
+     la sélection de l'instrument tiré au sort passe donc par cette classe. */
+  .splash-instr { display: none; width: min(58vw, 220px); height: min(58vw, 220px); opacity: 0; }
+  .splash-instr.chosen { display: block; }
+  .splash.run .splash-instr.chosen {
     opacity: 1;
     animation: splashFade calc(var(--splash-duration, 2000ms) * 0.35) ease-out forwards;
   }
-  .splash.run #splashBall {
-    /* Les éléments SVG pivotent par défaut autour de l'origine du viewBox :
-       recentrer l'origine sur le centre de la bille (100,100). */
-    transform-origin: 100px 100px;
-    animation: splashRoll var(--splash-duration, 2000ms) ease forwards;
-  }
-  .splash.run #splashPitch {
-    animation: splashPitch var(--splash-duration, 2000ms) ease forwards;
-  }
+  /* Les éléments SVG pivotent par défaut autour de l'origine du viewBox :
+     recentrer l'origine sur le centre de chaque cadran (100,100). */
+  .splash-instr * { transform-origin: 100px 100px; }
+
+  .splash.run [data-instr="horizon"].chosen .ball  { animation: horizonRoll  var(--splash-duration, 2000ms) ease forwards; }
+  .splash.run [data-instr="horizon"].chosen .pitch { animation: horizonPitch var(--splash-duration, 2000ms) ease forwards; }
+  .splash.run [data-instr="heading"].chosen .card  { animation: headingSpin  var(--splash-duration, 2000ms) ease forwards; }
+  .splash.run [data-instr="vario"].chosen .needle  { animation: varioNeedle  var(--splash-duration, 2000ms) ease forwards; }
+  .splash.run [data-instr="speed"].chosen .needle  { animation: speedNeedle  var(--splash-duration, 2000ms) ease forwards; }
+  .splash.run [data-instr="turn"].chosen .airplane { animation: turnBank     var(--splash-duration, 2000ms) ease forwards; }
+  .splash.run [data-instr="alt"].chosen .needleBig   { animation: altBig   var(--splash-duration, 2000ms) ease forwards; }
+  .splash.run [data-instr="alt"].chosen .needleSmall { animation: altSmall var(--splash-duration, 2000ms) ease forwards; }
+
   .splash-brand {
     font-size: 17px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
     color: #cdd8de; opacity: 0; animation: splashFade calc(var(--splash-duration, 2000ms) * 0.35) ease-out forwards;
     animation-delay: calc(var(--splash-duration, 2000ms) * 0.5);
   }
   @keyframes splashFade { from { opacity: 0; transform: scale(0.88); } to { opacity: 1; transform: scale(1); } }
-  @keyframes splashRoll {
+  @keyframes horizonRoll {
     0%   { transform: rotate(-38deg); }
     55%  { transform: rotate(9deg); }
     80%  { transform: rotate(-4deg); }
     100% { transform: rotate(0deg); }
   }
-  @keyframes splashPitch {
+  @keyframes horizonPitch {
     0%   { transform: translateY(55px); }
     50%  { transform: translateY(-28px); }
     75%  { transform: translateY(7px); }
     100% { transform: translateY(0px); }
   }
+  @keyframes headingSpin {
+    0%   { transform: rotate(250deg); }
+    60%  { transform: rotate(-18deg); }
+    85%  { transform: rotate(6deg); }
+    100% { transform: rotate(0deg); }
+  }
+  @keyframes varioNeedle {
+    0%   { transform: rotate(-150deg); }
+    45%  { transform: rotate(60deg); }
+    75%  { transform: rotate(-10deg); }
+    100% { transform: rotate(0deg); }
+  }
+  @keyframes speedNeedle {
+    0%   { transform: rotate(-90deg); }
+    50%  { transform: rotate(140deg); }
+    80%  { transform: rotate(96deg); }
+    100% { transform: rotate(108deg); }
+  }
+  @keyframes turnBank {
+    0%   { transform: rotate(-34deg); }
+    50%  { transform: rotate(16deg); }
+    78%  { transform: rotate(-6deg); }
+    100% { transform: rotate(0deg); }
+  }
+  @keyframes altBig {
+    0%   { transform: rotate(-200deg); }
+    55%  { transform: rotate(70deg); }
+    80%  { transform: rotate(-14deg); }
+    100% { transform: rotate(0deg); }
+  }
+  @keyframes altSmall {
+    0%   { transform: rotate(120deg); }
+    60%  { transform: rotate(-30deg); }
+    100% { transform: rotate(40deg); }
+  }
   @media (prefers-reduced-motion: reduce) {
-    .splash-horizon, .splash-brand { animation: none !important; opacity: 1 !important; }
-    #splashBall, #splashPitch { animation: none !important; transform: none !important; }
+    .splash-instr, .splash-brand { animation: none !important; opacity: 1 !important; }
+    .splash-instr * { animation: none !important; }
+    [data-instr="horizon"] .pitch { transform: none !important; }
   }
 
 </style>
 </head>
 <body>
-  <!-- Écran d'accueil : horizon artificiel animé (durée réglable dans les paramètres) -->
+  <!-- Écran d'accueil : instrument de bord animé, tiré au sort à chaque
+       ouverture (durée réglable dans les paramètres) -->
   <div class="splash" id="splash" aria-hidden="true">
-    <svg class="splash-horizon" id="splashHorizon" viewBox="0 0 200 200" role="img" aria-label="Horizon artificiel">
+
+    <!-- Éléments communs à tous les cadrans (fond, anneau, graduations, aiguilles) -->
+    <svg width="0" height="0" style="position:absolute">
       <defs>
-        <clipPath id="splashClip"><circle cx="100" cy="100" r="90"/></clipPath>
+        <clipPath id="instrClip"><circle cx="100" cy="100" r="90"/></clipPath>
+        <g id="bezelBg"><circle cx="100" cy="100" r="94" fill="#0c1116"/></g>
+        <g id="bezelRing">
+          <circle cx="100" cy="100" r="90" fill="none" stroke="#e7e0d1" stroke-width="2" opacity="0.5"/>
+          <circle cx="100" cy="100" r="94" fill="none" stroke="#1b1f24" stroke-width="6"/>
+        </g>
+        <g id="ticks12" stroke-width="2" fill="none">
+          <line x1="100" y1="12" x2="100" y2="24"/>
+          <line x1="100" y1="12" x2="100" y2="22" transform="rotate(30 100 100)"/>
+          <line x1="100" y1="12" x2="100" y2="22" transform="rotate(60 100 100)"/>
+          <line x1="100" y1="12" x2="100" y2="24" transform="rotate(90 100 100)"/>
+          <line x1="100" y1="12" x2="100" y2="22" transform="rotate(120 100 100)"/>
+          <line x1="100" y1="12" x2="100" y2="22" transform="rotate(150 100 100)"/>
+          <line x1="100" y1="12" x2="100" y2="24" transform="rotate(180 100 100)"/>
+          <line x1="100" y1="12" x2="100" y2="22" transform="rotate(210 100 100)"/>
+          <line x1="100" y1="12" x2="100" y2="22" transform="rotate(240 100 100)"/>
+          <line x1="100" y1="12" x2="100" y2="24" transform="rotate(270 100 100)"/>
+          <line x1="100" y1="12" x2="100" y2="22" transform="rotate(300 100 100)"/>
+          <line x1="100" y1="12" x2="100" y2="22" transform="rotate(330 100 100)"/>
+        </g>
+        <g id="needleLong"><line x1="100" y1="100" x2="100" y2="26" stroke-width="4" stroke-linecap="round"/><circle cx="100" cy="100" r="6"/></g>
+        <g id="needleShort"><line x1="100" y1="100" x2="100" y2="46" stroke-width="5" stroke-linecap="round"/></g>
       </defs>
-      <circle cx="100" cy="100" r="94" fill="#0c1116"/>
-      <g clip-path="url(#splashClip)">
-        <g id="splashBall">
-          <g id="splashPitch">
+    </svg>
+
+    <!-- Horizon artificiel -->
+    <svg class="splash-instr" data-instr="horizon" viewBox="0 0 200 200" role="img" aria-label="Horizon artificiel">
+      <use href="#bezelBg"/>
+      <g clip-path="url(#instrClip)">
+        <g class="ball">
+          <g class="pitch">
             <!-- Coordonnées centrées sur (100,100), le centre du cercle -->
             <rect x="-120" y="-500" width="440" height="600" fill="#3f7fc1"/>
             <rect x="-120" y="100" width="440" height="600" fill="#7a4a22"/>
@@ -772,8 +845,7 @@
           </g>
         </g>
       </g>
-      <circle cx="100" cy="100" r="90" fill="none" stroke="#e7e0d1" stroke-width="2" opacity="0.5"/>
-      <circle cx="100" cy="100" r="94" fill="none" stroke="#1b1f24" stroke-width="6"/>
+      <use href="#bezelRing"/>
       <polygon points="100,14 94,26 106,26" fill="#e7e0d1"/>
       <g stroke="#f6b91e" stroke-width="4" stroke-linecap="round">
         <line x1="52" y1="100" x2="84" y2="100"/>
@@ -782,6 +854,75 @@
       </g>
       <circle cx="100" cy="100" r="3.5" fill="#f6b91e"/>
     </svg>
+
+    <!-- Conservateur de cap -->
+    <svg class="splash-instr" data-instr="heading" viewBox="0 0 200 200" role="img" aria-label="Conservateur de cap">
+      <use href="#bezelBg"/>
+      <g clip-path="url(#instrClip)">
+        <g class="card">
+          <circle cx="100" cy="100" r="90" fill="#1c2b22"/>
+          <use href="#ticks12" stroke="#dcd6c8"/>
+          <text x="100" y="34" text-anchor="middle" fill="#f2ede1" font-size="18" font-weight="700">N</text>
+          <text x="166" y="106" text-anchor="middle" fill="#f2ede1" font-size="15">E</text>
+          <text x="100" y="178" text-anchor="middle" fill="#f2ede1" font-size="15">S</text>
+          <text x="34" y="106" text-anchor="middle" fill="#f2ede1" font-size="15">W</text>
+        </g>
+      </g>
+      <use href="#bezelRing"/>
+      <polygon points="100,12 95,24 105,24" fill="#f6b91e"/>
+      <g stroke="#e7e0d1" stroke-width="3" stroke-linecap="round">
+        <line x1="100" y1="78" x2="100" y2="122"/>
+        <line x1="76" y1="100" x2="124" y2="100"/>
+        <line x1="88" y1="118" x2="112" y2="118"/>
+      </g>
+    </svg>
+
+    <!-- Variomètre -->
+    <svg class="splash-instr" data-instr="vario" viewBox="0 0 200 200" role="img" aria-label="Variomètre">
+      <use href="#bezelBg"/>
+      <use href="#ticks12" stroke="#dcd6c8"/>
+      <use href="#bezelRing"/>
+      <use href="#needleLong" class="needle" stroke="#f6b91e" fill="#f6b91e"/>
+      <text x="100" y="150" text-anchor="middle" fill="#8f8676" font-size="13" font-weight="700" letter-spacing="1">VSI</text>
+    </svg>
+
+    <!-- Anémomètre -->
+    <svg class="splash-instr" data-instr="speed" viewBox="0 0 200 200" role="img" aria-label="Anémomètre">
+      <use href="#bezelBg"/>
+      <use href="#ticks12" stroke="#dcd6c8"/>
+      <use href="#bezelRing"/>
+      <use href="#needleLong" class="needle" stroke="#f6b91e" fill="#f6b91e"/>
+      <text x="100" y="150" text-anchor="middle" fill="#8f8676" font-size="13" font-weight="700" letter-spacing="1">KT</text>
+    </svg>
+
+    <!-- Indicateur de virage -->
+    <svg class="splash-instr" data-instr="turn" viewBox="0 0 200 200" role="img" aria-label="Indicateur de virage">
+      <use href="#bezelBg"/>
+      <use href="#bezelRing"/>
+      <g stroke="#dcd6c8" stroke-width="2">
+        <line x1="46" y1="60" x2="58" y2="72"/>
+        <line x1="154" y1="60" x2="142" y2="72"/>
+      </g>
+      <g class="airplane" stroke="#f6b91e" stroke-width="5" stroke-linecap="round">
+        <line x1="46" y1="100" x2="154" y2="100"/>
+        <line x1="100" y1="84" x2="100" y2="100"/>
+        <line x1="82" y1="116" x2="118" y2="116"/>
+      </g>
+      <text x="100" y="150" text-anchor="middle" fill="#8f8676" font-size="12" font-weight="700" letter-spacing="1">TURN</text>
+      <rect x="70" y="160" width="60" height="14" rx="7" fill="none" stroke="#dcd6c8" stroke-width="1.5"/>
+      <circle cx="100" cy="167" r="5" fill="#e7e0d1"/>
+    </svg>
+
+    <!-- Altimètre -->
+    <svg class="splash-instr" data-instr="alt" viewBox="0 0 200 200" role="img" aria-label="Altimètre">
+      <use href="#bezelBg"/>
+      <use href="#ticks12" stroke="#dcd6c8"/>
+      <use href="#bezelRing"/>
+      <use href="#needleLong" class="needleBig" stroke="#f6b91e" fill="#f6b91e"/>
+      <use href="#needleShort" class="needleSmall" stroke="#e7e0d1" fill="#e7e0d1"/>
+      <text x="100" y="150" text-anchor="middle" fill="#8f8676" font-size="12" font-weight="700" letter-spacing="1">ALT · ft</text>
+    </svg>
+
     <div class="splash-brand">Aviation</div>
   </div>
 
@@ -983,7 +1124,7 @@
             <button data-val="2">2 s</button>
             <button data-val="3">3 s</button>
           </div>
-          <div class="setting-hint">Horizon artificiel affiché au lancement. Effet visible au prochain démarrage.</div>
+          <div class="setting-hint">Un instrument de bord (horizon, cap, badin, variomètre, altimètre, virage) tiré au sort à chaque ouverture. Effet visible au prochain démarrage.</div>
         </div>
 
         <div class="setting">
@@ -1023,7 +1164,7 @@
           <li>Choisir les onglets visibles dans « Onglets » ci-dessus.</li>
           <li>Météo : les stations silencieuses ou périmées sont automatiquement écartées.</li>
           <li>Pour un usage plein écran, ajouter la page à l'écran d'accueil.</li>
-          <li>L'horizon artificiel animé au lancement se règle (durée ou désactivation) dans « Animation d'accueil ».</li>
+          <li>L'instrument animé au lancement (tiré au sort à chaque ouverture) se règle — durée ou désactivation — dans « Animation d'accueil ».</li>
           <li>Installée, l'app n'a plus de barre d'adresse : « Recharger la dernière version », dans les réglages, va rechercher la mise à jour sur le serveur.</li>
           <li>Une fois la page ouverte avec du réseau, elle reste disponible hors ligne ; les réglages indiquent « disponible hors ligne » quand c'est le cas.</li>
           <li>La météo, elle, demande toujours du réseau : aucune observation n'est servie depuis le cache.</li>
@@ -1177,7 +1318,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.11";
+const APP_VERSION = "3.12";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* ---- Recharger la dernière version -----------------------------------
@@ -1410,7 +1551,7 @@ if (settings.order.indexOf('vols') === -1) {
 }
 
 /* =====================================================================
-   ÉCRAN D'ACCUEIL — lance l'animation de l'horizon artificiel
+   ÉCRAN D'ACCUEIL — tire un instrument au sort et lance son animation
    ===================================================================== */
 (function () {
   const splash = document.getElementById('splash');
@@ -1419,6 +1560,17 @@ if (settings.order.indexOf('vols') === -1) {
   const ms = SPLASH_MS[settings.splashDuration] ?? 2000;
   const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (ms === 0 || reduceMotion) { splash.remove(); return; }
+
+  // Un instrument différent à chaque ouverture : tous sont dans le DOM
+  // (masqués par défaut via la classe .chosen — `hidden` n'existe pas sur
+  // SVGElement, seulement sur HTMLElement), on ne démasque que celui tiré
+  // au sort.
+  const instrs = Array.from(splash.querySelectorAll('.splash-instr'));
+  if (instrs.length) {
+    const chosen = instrs[Math.floor(Math.random() * instrs.length)];
+    chosen.classList.add('chosen');
+  }
+
   document.documentElement.style.setProperty('--splash-duration', ms + 'ms');
   // requestAnimationFrame : laisse le navigateur peindre l'état initial
   // avant de déclencher les animations CSS (sinon certains moteurs les sautent).
