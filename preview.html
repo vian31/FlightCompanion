@@ -727,12 +727,20 @@
   .splash-instr-mount div.instrument img { width: 100%; height: 100%; display: block; }
   .splash-brand {
     font-size: 17px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
-    color: #cdd8de; opacity: 0; animation: splashFade calc(var(--splash-duration, 2000ms) * 0.35) ease-out forwards;
-    animation-delay: calc(var(--splash-duration, 2000ms) * 0.5);
+    color: #cdd8de;
+  }
+  /* Titre lettre par lettre : chaque <span> (posé par JS, une lettre par
+     caractère de « Flight Companion ») s'anime avec un délai croissant. */
+  .splash-brand span { display: inline-block; opacity: 0; transform: translateY(10px); }
+  .splash.run .splash-brand span {
+    animation: splashLetter 0.5s ease-out forwards;
+    animation-delay: calc(var(--splash-duration, 2000ms) * 0.42 + var(--i, 0) * 28ms);
   }
   @keyframes splashFade { from { opacity: 0; transform: scale(0.88); } to { opacity: 1; transform: scale(1); } }
+  @keyframes splashLetter { to { opacity: 1; transform: translateY(0); } }
   @media (prefers-reduced-motion: reduce) {
-    .splash-instr-mount, .splash-brand { animation: none !important; opacity: 1 !important; }
+    .splash-instr-mount { animation: none !important; opacity: 1 !important; }
+    .splash-brand span { animation: none !important; opacity: 1 !important; transform: none !important; }
   }
 
 </style>
@@ -743,7 +751,7 @@
        durée réglable dans les paramètres. Le contenu est injecté par JS. -->
   <div class="splash" id="splash" aria-hidden="true">
     <div class="splash-instr-mount" id="splashInstrMount"></div>
-    <div class="splash-brand">Aviation</div>
+    <div class="splash-brand" id="splashBrand"></div>
   </div>
 
   <!-- Témoins de glissement (traits) -->
@@ -1139,7 +1147,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.11";
+const APP_VERSION = "3.12";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* ---- Recharger la dernière version -----------------------------------
@@ -1404,7 +1412,21 @@ if (settings.order.indexOf('vols') === -1) {
   ];
   const scene = SCENES[Math.floor(Math.random() * SCENES.length)];
   const size = mount.clientWidth || 200;
-  const api = buildFlightIndicator(mount, scene.type, Object.assign({ size }, scene.from));
+  // showBox:false — pas de cadre carré derrière le cadran : l'instrument
+  // repose directement sur le fond de l'écran d'accueil.
+  const api = buildFlightIndicator(mount, scene.type, Object.assign({ size, showBox: false }, scene.from));
+
+  // Titre lettre par lettre (une <span> par caractère, --i pilote le délai
+  // de chacune en CSS).
+  const brand = document.getElementById('splashBrand');
+  if (brand) {
+    Array.from('Flight Companion').forEach((ch, i) => {
+      const span = document.createElement('span');
+      span.textContent = ch === ' ' ? ' ' : ch;
+      span.style.setProperty('--i', i);
+      brand.appendChild(span);
+    });
+  }
 
   document.documentElement.style.setProperty('--splash-duration', ms + 'ms');
   requestAnimationFrame(() => splash.classList.add('run'));
