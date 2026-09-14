@@ -208,6 +208,11 @@
   body.digit-seg .sep { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 
   .section.total { background: var(--accent); border-color: var(--accent); }
+  /* Thème sombre : un aplat plein de --accent (couleur claire) jure sur fond
+     noir. --accent-soft est déjà la teinte sombre prévue par palette pour ce
+     rôle (voir les blocs [data-theme="dark"][data-palette=...] ci-dessus) ;
+     seule la bordure garde --accent, en liseré. */
+  [data-theme="dark"] .section.total { background: var(--accent-soft); }
 
   /* En-tête cliquable d'un vol enregistré */
   .total-head {
@@ -1204,7 +1209,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.19";
+const APP_VERSION = "3.20";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* ---- Recharger la dernière version -----------------------------------
