@@ -746,11 +746,24 @@
     animation: splashLetter 0.5s ease-out forwards;
     animation-delay: calc(var(--splash-duration, 2000ms) * 0.42 + var(--i, 0) * 28ms);
   }
+  /* Sous-titre de version : apparaît en un bloc, une fois le titre lettre
+     par lettre terminé. « Flight Companion » compte 16 caractères (indices
+     0 à 15) ; le délai reprend celui de la dernière lettre, plus sa durée
+     d'animation (0.5s), plus une courte pause. */
+  .splash-version {
+    font-size: 16px; letter-spacing: 0.04em; color: #7c8b93;
+    opacity: 0;
+  }
+  .splash.run .splash-version {
+    animation: splashFade 0.5s ease-out forwards;
+    animation-delay: calc(var(--splash-duration, 2000ms) * 0.42 + 15 * 28ms + 500ms + 100ms);
+  }
   @keyframes splashFade { from { opacity: 0; transform: scale(0.88); } to { opacity: 1; transform: scale(1); } }
   @keyframes splashLetter { to { opacity: 1; transform: translateY(0); } }
   @media (prefers-reduced-motion: reduce) {
     .splash-instr-mount { animation: none !important; opacity: 1 !important; }
     .splash-brand span { animation: none !important; opacity: 1 !important; transform: none !important; }
+    .splash-version { animation: none !important; opacity: 1 !important; }
   }
 
   /* Le contenu de l'app arrive en fondu une fois l'écran d'accueil parti.
@@ -785,6 +798,7 @@
   <div class="splash" id="splash" aria-hidden="true">
     <div class="splash-instr-mount" id="splashInstrMount"></div>
     <div class="splash-brand" id="splashBrand"></div>
+    <div class="splash-version" id="splashVersion"></div>
   </div>
 
   <!-- Témoins de glissement (traits) -->
@@ -1190,7 +1204,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.18";
+const APP_VERSION = "3.19";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* ---- Recharger la dernière version -----------------------------------
@@ -1509,6 +1523,8 @@ const GESTES_FS = ['pointerdown', 'touchstart', 'click'];
       brand.appendChild(span);
     });
   }
+  const splashVersion = document.getElementById('splashVersion');
+  if (splashVersion) splashVersion.textContent = 'Version ' + APP_VERSION;
 
   document.documentElement.style.setProperty('--splash-duration', ms + 'ms');
   requestAnimationFrame(() => splash.classList.add('run'));
