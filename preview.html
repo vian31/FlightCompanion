@@ -1000,9 +1000,9 @@
           <div class="setting-label">Animation d'accueil</div>
           <div class="seg-toggle" data-setting="splashDuration">
             <button data-val="0">Désactivée</button>
-            <button data-val="1">1 s</button>
-            <button data-val="2">2 s</button>
-            <button data-val="3">3 s</button>
+            <button data-val="1">2,5 s</button>
+            <button data-val="2">3,5 s</button>
+            <button data-val="3">4,5 s</button>
           </div>
           <div class="setting-hint">Un instrument de bord (horizon, cap, badin, variomètre, altimètre, virage) tiré au sort à chaque ouverture. Effet visible au prochain démarrage.</div>
         </div>
@@ -1209,7 +1209,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.22";
+const APP_VERSION = "3.23";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* ---- Recharger la dernière version -----------------------------------
@@ -1490,7 +1490,10 @@ const GESTES_FS = ['pointerdown', 'touchstart', 'click'];
   if (!splash) return;
   if (!mount || typeof buildFlightIndicator !== 'function') { splash.remove(); return; }
 
-  const SPLASH_MS = { '0': 0, '1': 1000, '2': 2000, '3': 3000 };
+  // +1.5 s sur chaque durée (sauf « Désactivée ») : le temps d'afficher le
+  // titre lettre par lettre puis la version laissait à peine de quoi la lire
+  // avant le fondu de sortie.
+  const SPLASH_MS = { '0': 0, '1': 2500, '2': 3500, '3': 4500 };
   const ms = SPLASH_MS[settings.splashDuration] ?? 2000;
   const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (ms === 0 || reduceMotion) { splash.remove(); return; }
