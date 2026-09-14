@@ -1190,7 +1190,7 @@ consulter le logbook => remarques / essence / huile / etc.
 /* =====================================================================
    VERSION DE L'APP — modifier cette ligne à chaque mise à jour
    ===================================================================== */
-const APP_VERSION = "3.20";
+const APP_VERSION = "3.21";
 document.getElementById('appVersion').textContent = 'Version ' + APP_VERSION;
 
 /* ---- Recharger la dernière version -----------------------------------
@@ -2792,11 +2792,14 @@ const FLIGHTS = (function () {
 
   /* ---- Clôture d'un vol ---- */
   // Enregistre le vol ; un vol déjà clôturé le même jour à la même heure
-  // bloc de départ est mis à jour plutôt que dupliqué.
+  // bloc de départ est mis à jour plutôt que dupliqué. Le vol réécrit
+  // reçoit un id neuf : la synchro départage deux copies d'un même vol
+  // sur l'horodatage de l'id, et garder l'ancien laisserait l'autre
+  // appareil réimposer sa version périmée.
   function add(rec) {
     const arr = loadAll();
     const i = arr.findIndex(f => f.sort === rec.sort);
-    if (i >= 0) { rec.id = arr[i].id; arr[i] = rec; } else { arr.push(rec); }
+    if (i >= 0) { arr[i] = rec; } else { arr.push(rec); }
     saveAll(arr);
     return rec.id;
   }
