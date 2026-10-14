@@ -6,7 +6,7 @@ on:
     - cron: "0 4 * * 1"  # le lundi à 4 h UTC
 
 permissions:
-  contents: read
+  contents: write  # commit de aerodromes.json
 
 jobs:
   fetch:
@@ -14,13 +14,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Mode exploration : la réponse brute de listall est uploadée en
-      # artifact et n'est PAS commitée dans le dépôt.
       - name: Récupérer listall (un seul appel)
         env:
           BASULM_API_KEY: ${{ secrets.BASULM_API_KEY }}
         run: python3 scripts/fetch_basulm.py "$RUNNER_TEMP/basulm_listall.json"
 
+      # Réponse brute gardée en artifact (non commitée) pour inspection.
       - name: Uploader la réponse brute
         uses: actions/upload-artifact@v4
         with:
@@ -28,3 +27,19 @@ jobs:
           path: ${{ runner.temp }}/basulm_listall.json
           if-no-files-found: error
           retention-days: 14
+
+      - name: Construire aerodromes.json
+        run: python3 scripts/build_aerodromes.py "$RUNNER_TEMP/basulm_listall.json" aerodromes.json
+
+      # Ne commite que si BASULM a changé (maj = date_modif la plus récente).
+      - name: Commiter aerodromes.json si modifié
+        run: |
+          if [ -z "$(git status --porcelain aerodromes.json)" ]; then
+            echo "aerodromes.json inchangé"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add aerodromes.json
+          git commit -m "Met à jour les terrains ULM BASULM"
+          git push origin HEAD:main
