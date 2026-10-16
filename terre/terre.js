@@ -73,11 +73,11 @@ void main() {
   float rho = length(p);
 
   // ---- fond : memes lois que le firmware, distances en rayons ----
-  vec3 col = vec3(3.0, 6.0, 18.0);
+  vec3 col = vec3(1.0, 2.0, 6.0);
   float th = clamp(1.0 - (rho - uR) / (uR * (230.0 / 96.0)), 0.0, 1.0);
-  col += th * th * vec3(8.0, 22.0, 58.0);
+  col += th * th * vec3(3.0, 8.0, 22.0);
   float vy = 1.0 - gl_FragCoord.y / uRes.y;
-  col += vy * vy * vy * vec3(2.0, 6.0, 16.0);
+  col += vy * vy * vy * vec3(1.0, 2.0, 5.0);
   col /= 255.0;
   col = max(col, texture(uEtoiles, vec2(gl_FragCoord.x / uRes.x, vy)).rgb);
 
