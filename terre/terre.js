@@ -2,34 +2,63 @@
 //  terre.js - Globe jour / nuit en temps reel (fond d'ecran)
 //  Port WebGL2 de l'ecran TERRE de MultiClock (lib/Terre/terre_ecran.cpp,
 //  reference outils/terre_simulateur.py) : meme projection orthographique,
-//  memes constantes d'eclairage, sans les textes.
+//  memes constantes d'eclairage, sans les textes. Avions en orbite dessines
+//  sur un calque 2D anime.
 //
-//  Parametres d'URL (tous facultatifs) :
-//    lat, lon     centre de la vue en degres          (43.6  1.4)
-//    taille       diametre du globe / petit cote ecran (0.8)
-//    cx, cy       centre du globe, fraction de l'ecran (0.5  0.5)
-//    nuit         luminosite de la face cachee         (0.5)
-//    etoiles      0 = sans etoiles                     (1)
-//    crepuscule   1 = lignes -6 / -12 / -18 deg        (0)
-//    t            instant fige, ISO UTC (2026-10-11T16:50:00Z)
+//  Reglages : panneau (bouton engrenage, visible quand la souris bouge),
+//  gardes dans le navigateur (localStorage). Priorite : URL > reglages
+//  gardes > defauts. Parametres d'URL = noms de DEFAUTS ci-dessous, plus
+//    t   instant fige, ISO UTC (2026-10-11T16:50:00Z)
 // ============================================================
 import { soleilDansVue } from "./soleil.js";
-import { ETOILES } from "./etoiles.js";
+
+const DEFAUTS = {
+  lat: 43.6, lon: 1.4,          // centre de la vue, degres
+  taille: 0.8,                  // diametre du globe / petit cote de l'ecran
+  cx: 0.5, cy: 0.5,             // centre du globe, fraction de l'ecran
+  etoiles: 600,                 // nombre d'etoiles (MAX_ETOILES au plus)
+  ombre: 0.5,                   // luminosite de la face cachee (hors villes)
+  villes: 0.5,                  // luminosite des lumieres des villes
+  crepuscule: 0,                // 1 = lignes -6 / -12 / -18 deg
+  brume: 1,                     // voile atmospherique + lisere cote eclaire
+  brumeEp: 1,                   // epaisseur (1 = firmware)
+  brumeLum: 1,                  // intensite (1 = firmware)
+  brumeTeinte: "#78aaff",       // (120, 170, 255) du firmware
+  avions: 3,                    // nombre d'avions
+  avionTaille: 1,               // 1 = 16 px de long
+  avionDist: 0.12,              // altitude, en rayons du globe
+  avionVit: 0.5,                // tours par minute
+};
+const CLE_STOCKAGE = "terre.reglages";
+const MAX_ETOILES = 3000;
 
 const params = new URLSearchParams(location.search);
-const nombre = (nom, defaut) => {
-  const v = parseFloat(params.get(nom));
-  return Number.isFinite(v) ? v : defaut;
-};
-const LAT0 = nombre("lat", 43.6), LON0 = nombre("lon", 1.4);
-const TAILLE = nombre("taille", 0.8);
-const CX = nombre("cx", 0.5), CY = nombre("cy", 0.5);
-const LUMIERE_NUIT = nombre("nuit", 0.5);
-const AVEC_ETOILES = nombre("etoiles", 1) !== 0;
-const CREPUSCULE = nombre("crepuscule", 0) !== 0;
 const INSTANT_FIGE = params.has("t") ? Date.parse(params.get("t")) : NaN;
 
+function convertit(cle, texte) {
+  if (typeof DEFAUTS[cle] === "string") return /^#[0-9a-fA-F]{6}$/.test(texte) ? texte : undefined;
+  const v = parseFloat(texte);
+  return Number.isFinite(v) ? v : undefined;
+}
+
+const reglages = { ...DEFAUTS };
+try {
+  const garde = JSON.parse(localStorage.getItem(CLE_STOCKAGE) || "{}");
+  for (const cle in DEFAUTS) {
+    if (garde[cle] === undefined) continue;
+    const v = convertit(cle, String(garde[cle]));
+    if (v !== undefined) reglages[cle] = v;
+  }
+} catch (e) { /* stockage indisponible : defauts */ }
+for (const cle in DEFAUTS) {
+  if (!params.has(cle)) continue;
+  const v = convertit(cle, params.get(cle));
+  if (v !== undefined) reglages[cle] = v;
+}
+
 const toile = document.getElementById("toile");
+const calque = document.getElementById("avions");
+const ctx = calque.getContext("2d");
 const msg = document.getElementById("msg");
 function erreur(texte) {
   msg.textContent = texte;
@@ -53,8 +82,12 @@ uniform vec2 uC;            // centre du globe (pixels, y vers le haut)
 uniform float uR;           // rayon du globe en pixels
 uniform vec2 uP;            // lat0, lon0 en radians
 uniform vec3 uSv;           // direction du soleil dans le repere de vue
-uniform float uNuit;        // luminosite de la face cachee
+uniform float uOmbre;       // luminosite de la face cachee
+uniform float uVilles;      // luminosite des villes
 uniform float uCrep;        // lignes de crepuscule
+uniform vec3 uBrume;        // teinte de la brume (0..255)
+uniform float uBrumeEp;     // epaisseur de la brume
+uniform float uBrumeLum;    // intensite de la brume (0 = sans)
 uniform sampler2D uJour, uNuitTex, uLut, uEtoiles;
 out vec4 sortie;
 
@@ -72,7 +105,7 @@ void main() {
   vec2 p = gl_FragCoord.xy - uC;
   float rho = length(p);
 
-  // ---- fond : memes lois que le firmware, distances en rayons ----
+  // ---- fond : lois du firmware assombries, distances en rayons ----
   vec3 col = vec3(1.0, 2.0, 6.0);
   float th = clamp(1.0 - (rho - uR) / (uR * (230.0 / 96.0)), 0.0, 1.0);
   col += th * th * vec3(3.0, 8.0, 22.0);
@@ -105,18 +138,20 @@ void main() {
   float f = lisse(-0.10, 0.06, L);
 
   // jour : Lambert adouci + voile atmospherique vers le limbe
+  // (epaisseur 1 = exposant 2,5 du firmware ; plus epais = exposant plus faible)
   vec3 jr = textureGrad(uJour, uv, duv_dx, duv_dy).rgb * 255.0;
   float ecl = 0.35 + 0.65 * sqrt(max(L, 0.0));
   float qq = 1.0 - pz;
-  float voile = qq * qq * sqrt(qq) * 0.55 * clamp(3.0 * L + 0.3, 0.0, 1.0);
-  vec3 jour = jr * ecl * (1.0 - voile) + vec3(120.0, 170.0, 255.0) * voile;
+  float voile = min(pow(qq, 2.5 / uBrumeEp) * 0.55 * uBrumeLum * clamp(3.0 * L + 0.3, 0.0, 1.0), 1.0);
+  vec3 jour = jr * ecl * (1.0 - voile) + uBrume * voile;
 
-  // nuit : luminance -> palette (couleur moyenne reelle du niveau) x gain
+  // nuit : luminance -> palette (couleur moyenne reelle du niveau) x gain ;
+  // gain du firmware 0,55 -> 1,60 de l'ombre aux villes, chacun regle a part
   vec3 nt = textureGrad(uNuitTex, uv, duv_dx, duv_dy).rgb;
   float lum = floor(clamp((nt.r + nt.g + nt.b) / 3.0 * 255.0, 0.0, 255.0));
   vec3 lut = texelFetch(uLut, ivec2(int(lum), 0), 0).rgb * 255.0;
-  float gain = (0.55 + 1.05 * clamp((lum - 40.0) / 80.0, 0.0, 1.0)) * uNuit;
-  vec3 nuit = lut * gain;
+  float k = clamp((lum - 40.0) / 80.0, 0.0, 1.0);
+  vec3 nuit = lut * mix(0.55 * uOmbre, 1.60 * uVilles, k);
 
   vec3 pix = nuit * (1.0 - f) + jour * f;
   if (uCrep > 0.5) {
@@ -128,13 +163,13 @@ void main() {
     }
   }
   float couv = clamp(uR - rho + 0.5, 0.0, 1.0);
-  col = mix(col, pix / 255.0, couv);
+  col = mix(col, min(pix, 255.0) / 255.0, couv);
 
   // ---- lisere atmospherique, cote eclaire ----
-  float lis = clamp(1.0 - (rho - uR) / (uR * (6.0 / 96.0)), 0.0, 1.0);
+  float lis = clamp(1.0 - (rho - uR) / (uR * (6.0 / 96.0) * uBrumeEp), 0.0, 1.0);
   float bord = clamp(dot(p / max(rho, 1.0), uSv.xy) + 0.3, 0.0, 1.0);
-  float w = lis * bord * 0.7 * step(uR - 0.5, rho);
-  col = mix(col, vec3(110.0, 165.0, 255.0) / 255.0, w);
+  float w = min(lis * bord * 0.7 * uBrumeLum, 1.0) * step(uR - 0.5, rho);
+  col = mix(col, uBrume / 255.0, w);
 
   col += (bruit(gl_FragCoord.xy) - 0.5) / 255.0;     // evite les bandes du degrade
   sortie = vec4(col, 1.0);
@@ -148,7 +183,9 @@ function compile(type, source) {
   return s;
 }
 
-let programme, uni = {}, texJour, texNuit, texLut, texEtoiles;
+const UNIFORMES = ["uRes", "uC", "uR", "uP", "uSv", "uOmbre", "uVilles", "uCrep", "uBrume", "uBrumeEp",
+  "uBrumeLum", "uJour", "uNuitTex", "uLut", "uEtoiles"];
+let programme, uni = {}, texEtoiles;
 
 function initGL() {
   programme = gl.createProgram();
@@ -157,8 +194,7 @@ function initGL() {
   gl.linkProgram(programme);
   if (!gl.getProgramParameter(programme, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(programme));
   gl.useProgram(programme);
-  for (const n of ["uRes", "uC", "uR", "uP", "uSv", "uNuit", "uCrep", "uJour", "uNuitTex", "uLut", "uEtoiles"])
-    uni[n] = gl.getUniformLocation(programme, n);
+  for (const n of UNIFORMES) uni[n] = gl.getUniformLocation(programme, n);
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -240,7 +276,36 @@ function palette(image) {
   return t;
 }
 
-// Etoiles : peintes dans un canevas 2D noir, lu comme texture par le shader
+// ------------------------------------------------------------
+//  Etoiles : tirage fixe (graine 7), memes lois de luminosite (60..230) et
+//  de teinte que outils/lune.py ; positions normalisees 0..1. Les N
+//  premieres sont affichees : augmenter le nombre ajoute des etoiles sans
+//  deplacer les autres.
+// ------------------------------------------------------------
+function aleaGraine(a) {           // mulberry32
+  return () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function choix(alea, valeurs, probas) {
+  let x = alea();
+  for (let i = 0; i < valeurs.length - 1; i++) { if (x < probas[i]) return valeurs[i]; x -= probas[i]; }
+  return valeurs[valeurs.length - 1];
+}
+const ETOILES = (() => {
+  const alea = aleaGraine(7), liste = [];
+  for (let i = 0; i < MAX_ETOILES; i++) {
+    const u = alea(), v = alea();
+    const b = choix(alea, [60, 90, 120, 170, 230], [0.35, 0.25, 0.2, 0.13, 0.07]);
+    const te = choix(alea, [0, 1, 2], [0.7, 0.18, 0.12]);
+    liste.push([u, v, b, te]);
+  }
+  return liste;
+})();
+
 const TEINTES = [[1, 1, 1], [0.8, 0.88, 1], [1, 0.92, 0.78]];
 function dessineEtoiles(l, h, cx, cy, r, dpr) {
   const c = document.createElement("canvas");
@@ -248,23 +313,23 @@ function dessineEtoiles(l, h, cx, cy, r, dpr) {
   const g = c.getContext("2d");
   g.fillStyle = "#000";
   g.fillRect(0, 0, l, h);
-  if (AVEC_ETOILES) {
-    for (const [u, v, b, te] of ETOILES) {
-      const x = u * l, y = v * h;
-      if (Math.hypot(x - cx, y - cy) < r * 1.12) continue;     // pas sur le globe
-      const t = TEINTES[te];
-      const couleur = (k) => `rgb(${Math.round(t[0] * b * k)},${Math.round(t[1] * b * k)},${Math.round(t[2] * b * k)})`;
-      const rayon = dpr * (0.55 + b / 230 * 0.55);
-      g.fillStyle = couleur(1);
-      g.beginPath(); g.arc(x, y, rayon, 0, 2 * Math.PI); g.fill();
-      if (b >= 170) {                                           // croix des plus brillantes
-        g.fillStyle = couleur(0.35);
-        const e = rayon * 1.6;
-        g.fillRect(x - e - rayon, y - rayon * 0.5, e, rayon);
-        g.fillRect(x + rayon, y - rayon * 0.5, e, rayon);
-        g.fillRect(x - rayon * 0.5, y - e - rayon, rayon, e);
-        g.fillRect(x - rayon * 0.5, y + rayon, rayon, e);
-      }
+  const n = Math.min(MAX_ETOILES, Math.max(0, Math.round(reglages.etoiles)));
+  for (let i = 0; i < n; i++) {
+    const [u, v, b, te] = ETOILES[i];
+    const x = u * l, y = v * h;
+    if (Math.hypot(x - cx, y - cy) < r * 1.12) continue;     // pas sur le globe
+    const t = TEINTES[te];
+    const couleur = (k) => `rgb(${Math.round(t[0] * b * k)},${Math.round(t[1] * b * k)},${Math.round(t[2] * b * k)})`;
+    const rayon = dpr * (0.55 + b / 230 * 0.55);
+    g.fillStyle = couleur(1);
+    g.beginPath(); g.arc(x, y, rayon, 0, 2 * Math.PI); g.fill();
+    if (b >= 170) {                                           // croix des plus brillantes
+      g.fillStyle = couleur(0.35);
+      const e = rayon * 1.6;
+      g.fillRect(x - e - rayon, y - rayon * 0.5, e, rayon);
+      g.fillRect(x + rayon, y - rayon * 0.5, e, rayon);
+      g.fillRect(x - rayon * 0.5, y - e - rayon, rayon, e);
+      g.fillRect(x - rayon * 0.5, y + rayon, rayon, e);
     }
   }
   gl.activeTexture(gl.TEXTURE3);
@@ -281,9 +346,11 @@ function dessineEtoiles(l, h, cx, cy, r, dpr) {
 }
 
 // ------------------------------------------------------------
-//  Rendu
+//  Rendu du globe (une image toutes les 30 s, ou a chaque reglage)
 // ------------------------------------------------------------
-let dessine = false, derniereGeometrie = "", dernierMs = 0;
+let pret = false, derniereCle = "", dernierCreneau = -1;
+let vue = { l: 1, h: 1, dpr: 1, cx: 0, cy: 0, R: 1 };
+let soleil = [0, 0, 1];
 
 function geometrie() {
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
@@ -292,49 +359,295 @@ function geometrie() {
   return { dpr, l, h };
 }
 
+function couleurRvb(hexa) {
+  const n = parseInt(hexa.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
 function rendu(forcer) {
-  if (!dessine) return;
+  if (!pret) return;
   const ms = Number.isFinite(INSTANT_FIGE) ? INSTANT_FIGE : Date.now();
   const { dpr, l, h } = geometrie();
-  const cle = l + "x" + h + "@" + dpr;
-  const moitie = Math.floor(ms / 30000);               // soleil : 0,125 deg par 30 s
-  if (!forcer && cle === derniereGeometrie && moitie === dernierMs) return;
+  const cle = [l, h, dpr, reglages.taille, reglages.cx, reglages.cy, reglages.etoiles].join("|");
+  const creneau = Math.floor(ms / 30000);               // soleil : 0,125 deg par 30 s
+  if (!forcer && cle === derniereCle && creneau === dernierCreneau) return;
 
-  const R = TAILLE * Math.min(l, h) / 2;
-  const cx = CX * l, cy = CY * h;                       // cy du haut de l'ecran
-  if (cle !== derniereGeometrie) {
+  const R = reglages.taille * Math.min(l, h) / 2;
+  const cx = reglages.cx * l, cy = reglages.cy * h;     // cy du haut de l'ecran
+  vue = { l, h, dpr, cx, cy, R };
+  if (cle !== derniereCle) {
     toile.width = l; toile.height = h;
+    calque.width = l; calque.height = h;
     dessineEtoiles(l, h, cx, cy, R, dpr);
-    derniereGeometrie = cle;
+    derniereCle = cle;
   }
-  dernierMs = moitie;
+  dernierCreneau = creneau;
 
-  const { sv } = soleilDansVue(ms, LAT0, LON0);
+  soleil = soleilDansVue(ms, reglages.lat, reglages.lon).sv;
+  const brume = couleurRvb(reglages.brumeTeinte);
   gl.viewport(0, 0, l, h);
   gl.uniform2f(uni.uRes, l, h);
   gl.uniform2f(uni.uC, cx, h - cy);
   gl.uniform1f(uni.uR, R);
-  gl.uniform2f(uni.uP, LAT0 * Math.PI / 180, LON0 * Math.PI / 180);
-  gl.uniform3f(uni.uSv, sv[0], sv[1], sv[2]);
-  gl.uniform1f(uni.uNuit, LUMIERE_NUIT);
-  gl.uniform1f(uni.uCrep, CREPUSCULE ? 1 : 0);
+  gl.uniform2f(uni.uP, reglages.lat * Math.PI / 180, reglages.lon * Math.PI / 180);
+  gl.uniform3f(uni.uSv, soleil[0], soleil[1], soleil[2]);
+  gl.uniform1f(uni.uOmbre, reglages.ombre);
+  gl.uniform1f(uni.uVilles, reglages.villes);
+  gl.uniform1f(uni.uCrep, reglages.crepuscule ? 1 : 0);
+  gl.uniform3f(uni.uBrume, brume[0], brume[1], brume[2]);
+  gl.uniform1f(uni.uBrumeEp, Math.max(0.05, reglages.brumeEp));
+  gl.uniform1f(uni.uBrumeLum, reglages.brume ? reglages.brumeLum : 0);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   document.title = "Terre - " + new Date(ms).toISOString().slice(0, 16) + "Z";
   window.terrePrete = true;
 }
 
+// ------------------------------------------------------------
+//  Avions : orbites circulaires d'inclinaison aleatoire, en 3D dans le
+//  repere de vue (x droite, y haut, z vers l'observateur), projetes comme
+//  le globe. Caches derriere le disque, assombris dans l'ombre de la Terre.
+// ------------------------------------------------------------
+const avions = [];
+
+function nouvelAvion() {
+  // normale de l'orbite uniforme sur la sphere -> angle aleatoire autour du globe
+  const z = Math.random() * 2 - 1, phi = Math.random() * 2 * Math.PI, s = Math.sqrt(1 - z * z);
+  const n = [s * Math.cos(phi), s * Math.sin(phi), z];
+  const ref = Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+  const a = normalise(vectoriel(n, ref)), b = vectoriel(n, a);
+  return {
+    a, b,
+    theta: Math.random() * 2 * Math.PI,
+    sens: Math.random() < 0.5 ? -1 : 1,
+    facteurDist: 0.85 + Math.random() * 0.3,
+    facteurVit: 0.7 + Math.random() * 0.6,
+    phaseFeu: Math.random(),
+  };
+}
+function vectoriel(u, v) {
+  return [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+}
+function normalise(u) {
+  const n = Math.hypot(u[0], u[1], u[2]);
+  return [u[0] / n, u[1] / n, u[2] / n];
+}
+function ajusteFlotte() {
+  const n = Math.max(0, Math.round(reglages.avions));
+  while (avions.length < n) avions.push(nouvelAvion());
+  avions.length = n;
+}
+
+function positionAvion(av, theta) {
+  const d = 1 + reglages.avionDist * av.facteurDist;
+  const c = Math.cos(theta), s = Math.sin(theta);
+  return [d * (av.a[0] * c + av.b[0] * s), d * (av.a[1] * c + av.b[1] * s), d * (av.a[2] * c + av.b[2] * s)];
+}
+function cache(P) {
+  return P[2] < 0 && P[0] * P[0] + P[1] * P[1] < 1;
+}
+function eclaire(P) {
+  const d = P[0] * soleil[0] + P[1] * soleil[1] + P[2] * soleil[2];
+  return d > 0 || P[0] * P[0] + P[1] * P[1] + P[2] * P[2] - d * d > 1;
+}
+
+const LONGUEUR_TRAINEE = 0.5;     // radians d'orbite
+const SEGMENTS_TRAINEE = 18;
+
+function dessineAvion(av, t) {
+  const { cx, cy, R, dpr } = vue;
+  const ecran = (P) => [cx + R * P[0], cy - R * P[1]];
+  const P = positionAvion(av, av.theta);
+  const allume = eclaire(P);
+
+  // trainee : segments de plus en plus transparents vers l'arriere
+  const taille = 16 * reglages.avionTaille * dpr;
+  ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(1, taille * 0.12);
+  let prec = P;
+  for (let i = 1; i <= SEGMENTS_TRAINEE; i++) {
+    const Q = positionAvion(av, av.theta - av.sens * LONGUEUR_TRAINEE * i / SEGMENTS_TRAINEE);
+    if (!cache(prec) && !cache(Q)) {
+      const alpha = 0.45 * (1 - i / SEGMENTS_TRAINEE) * (eclaire(Q) ? 1 : 0.3);
+      const [x0, y0] = ecran(prec), [x1, y1] = ecran(Q);
+      ctx.strokeStyle = `rgba(225, 235, 255, ${alpha.toFixed(3)})`;
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    }
+    prec = Q;
+  }
+  if (cache(P)) return;
+
+  // cap a l'ecran et raccourci quand l'avion vient vers nous ou s'eloigne
+  const V = [av.sens * (-av.a[0] * Math.sin(av.theta) + av.b[0] * Math.cos(av.theta)),
+             av.sens * (-av.a[1] * Math.sin(av.theta) + av.b[1] * Math.cos(av.theta)),
+             av.sens * (-av.a[2] * Math.sin(av.theta) + av.b[2] * Math.cos(av.theta))];
+  const vPlan = Math.hypot(V[0], V[1]);
+  const raccourci = Math.max(0.25, vPlan);
+  const [x, y] = ecran(P);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Math.atan2(-V[1], V[0]));
+  ctx.scale(taille / 16 * (1 + 0.12 * P[2]), taille / 16 * (1 + 0.12 * P[2]));
+
+  // silhouette (nez vers +x, 16 unites de long)
+  ctx.save();
+  ctx.scale(raccourci, 1);
+  ctx.fillStyle = allume ? "#e9eef8" : "#3c4766";
+  ctx.beginPath();
+  ctx.moveTo(8, 0);
+  ctx.quadraticCurveTo(7, -1.1, 4, -1.1);
+  ctx.lineTo(1, -1.1); ctx.lineTo(-2, -7.5); ctx.lineTo(-3.6, -7.5); ctx.lineTo(-2.2, -1.1);
+  ctx.lineTo(-5.6, -1.0); ctx.lineTo(-7, -3.6); ctx.lineTo(-8, -3.6); ctx.lineTo(-7.4, -0.6);
+  ctx.lineTo(-8, 0);
+  ctx.lineTo(-7.4, 0.6); ctx.lineTo(-8, 3.6); ctx.lineTo(-7, 3.6); ctx.lineTo(-5.6, 1.0);
+  ctx.lineTo(-2.2, 1.1); ctx.lineTo(-3.6, 7.5); ctx.lineTo(-2, 7.5); ctx.lineTo(1, 1.1);
+  ctx.lineTo(4, 1.1);
+  ctx.quadraticCurveTo(7, 1.1, 8, 0);
+  ctx.fill();
+  ctx.restore();
+
+  // feu anticollision rouge : un eclat par seconde
+  if (((t / 1000 + av.phaseFeu) % 1) < 0.12) {
+    ctx.fillStyle = "rgba(255, 60, 50, 0.95)";
+    ctx.beginPath(); ctx.arc(0, 0, 1.3, 0, 2 * Math.PI); ctx.fill();
+  }
+  ctx.restore();
+}
+
+let dernierT = 0, boucleActive = false;
+function anime(t) {
+  if (!avions.length) {
+    ctx.clearRect(0, 0, calque.width, calque.height);
+    boucleActive = false;
+    return;
+  }
+  requestAnimationFrame(anime);
+  if (t - dernierT < 33) return;                        // ~30 images / s suffisent
+  const dt = dernierT ? Math.min(0.2, (t - dernierT) / 1000) : 0;
+  dernierT = t;
+  const omega = 2 * Math.PI * reglages.avionVit / 60;
+  ctx.clearRect(0, 0, calque.width, calque.height);
+  for (const av of avions) {
+    av.theta += av.sens * omega * av.facteurVit * dt;
+    dessineAvion(av, t);
+  }
+}
+function lanceAvions() {
+  ajusteFlotte();
+  if (!boucleActive && avions.length) {
+    boucleActive = true;
+    dernierT = 0;
+    requestAnimationFrame(anime);
+  } else if (!avions.length) {
+    ctx.clearRect(0, 0, calque.width, calque.height);
+  }
+}
+
+// ------------------------------------------------------------
+//  Panneau de reglages
+// ------------------------------------------------------------
+const engrenage = document.getElementById("engrenage");
+const panneau = document.getElementById("panneau");
+const champs = [...document.querySelectorAll("#panneau [data-cle]")];
+
+function sauve() {
+  try { localStorage.setItem(CLE_STOCKAGE, JSON.stringify(reglages)); } catch (e) { /* ignore */ }
+  // reglages retires de l'URL : au rechargement ils ecraseraient ceux gardes
+  const p = new URLSearchParams(location.search);
+  for (const cle in DEFAUTS) p.delete(cle);
+  history.replaceState(null, "", location.pathname + (p.toString() ? "?" + p : ""));
+}
+
+function decimales(pas) {
+  const s = String(pas);
+  return s.includes(".") ? s.length - s.indexOf(".") - 1 : 0;
+}
+function afficheChamp(el) {
+  const cle = el.dataset.cle;
+  if (el.type === "checkbox") el.checked = !!reglages[cle];
+  else el.value = reglages[cle];
+  const sortie = el.parentElement.querySelector("output");
+  if (sortie) sortie.textContent = Number(reglages[cle]).toFixed(decimales(el.step || 1));
+}
+
+function applique(cle) {
+  if (cle.startsWith("avion")) {
+    if (cle === "avions") lanceAvions();
+    return;
+  }
+  rendu(true);
+}
+
+for (const el of champs) {
+  afficheChamp(el);
+  el.addEventListener("input", () => {
+    const cle = el.dataset.cle;
+    reglages[cle] = el.type === "checkbox" ? (el.checked ? 1 : 0)
+      : el.type === "color" ? el.value : parseFloat(el.value);
+    afficheChamp(el);
+    sauve();
+    applique(cle);
+  });
+}
+
+function lienComplet() {
+  const p = new URLSearchParams();
+  for (const cle in DEFAUTS) if (reglages[cle] !== DEFAUTS[cle]) p.set(cle, reglages[cle]);
+  return location.origin + location.pathname + (p.toString() ? "?" + p : "");
+}
+const bLien = document.getElementById("bLien");
+const texteLien = bLien.textContent;
+bLien.addEventListener("click", async () => {
+  const lien = lienComplet();
+  try {
+    await navigator.clipboard.writeText(lien);
+    bLien.textContent = bLien.dataset.ok;
+  } catch (e) {
+    window.prompt("", lien);
+  }
+  setTimeout(() => { bLien.textContent = texteLien; }, 1800);
+});
+document.getElementById("bDefaut").addEventListener("click", () => {
+  Object.assign(reglages, DEFAUTS);
+  for (const el of champs) afficheChamp(el);
+  sauve();
+  lanceAvions();
+  rendu(true);
+});
+document.getElementById("bFermer").addEventListener("click", () => panneau.classList.remove("ouvert"));
+engrenage.addEventListener("click", () => panneau.classList.toggle("ouvert"));
+
+// engrenage visible seulement quand la souris bouge (fond d'ecran discret)
+let minuterieEngrenage = 0;
+function montreEngrenage() {
+  engrenage.classList.add("visible");
+  clearTimeout(minuterieEngrenage);
+  minuterieEngrenage = setTimeout(() => {
+    if (!panneau.classList.contains("ouvert")) engrenage.classList.remove("visible");
+  }, 3000);
+}
+window.addEventListener("mousemove", montreEngrenage);
+window.addEventListener("touchstart", montreEngrenage, { passive: true });
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") panneau.classList.remove("ouvert");
+  else if (e.key === "r" || e.key === "R") { panneau.classList.toggle("ouvert"); montreEngrenage(); }
+});
+
+// ------------------------------------------------------------
+//  Demarrage
+// ------------------------------------------------------------
 async function demarre() {
   initGL();
   const [jour, nuit] = await Promise.all([chargeImage("textures/jour.jpg"), chargeImage("textures/nuit.jpg")]);
-  texJour = textureCarte(0, jour);
-  texNuit = textureCarte(1, nuit);
-  texLut = palette(nuit);
+  textureCarte(0, jour);
+  textureCarte(1, nuit);
+  palette(nuit);
   gl.uniform1i(uni.uJour, 0);
   gl.uniform1i(uni.uNuitTex, 1);
   gl.uniform1i(uni.uLut, 2);
   gl.uniform1i(uni.uEtoiles, 3);
-  dessine = true;
+  pret = true;
   rendu(true);
+  lanceAvions();
   window.addEventListener("resize", () => rendu(false));
   if (!Number.isFinite(INSTANT_FIGE)) setInterval(() => rendu(false), 5000);
 }
