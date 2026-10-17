@@ -9,7 +9,7 @@
   canvas { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; }
   #toile { touch-action: none; cursor: grab; }
   #toile:active { cursor: grabbing; }
-  #avions { pointer-events: none; }
+  #iss3d, #avions { pointer-events: none; }
   #msg { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
          color: #8896b0; font: 16px sans-serif; text-align: center; padding: 2em; }
 
@@ -43,6 +43,7 @@
 </head>
 <body>
 <canvas id="toile"></canvas>
+<canvas id="iss3d"></canvas>
 <canvas id="avions"></canvas>
 <div id="msg"></div>
 
@@ -85,6 +86,9 @@
   <p class="version" id="version"></p>
 </div>
 
+<script type="importmap">
+{ "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/jsm/" } }
+</script>
 <script type="module" src="terre.js"></script>
 </body>
 </html>

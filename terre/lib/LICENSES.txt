@@ -1,0 +1,9 @@
+three.module.min.js, jsm/loaders/GLTFLoader.js, jsm/utils/BufferGeometryUtils.js
+  three.js r170 - MIT - Copyright 2010-2024 three.js authors - https://threejs.org
+
+../models/iss.glb
+  Derive du modele "International Space Station (ISS) (A)" de NASA 3D Resources
+  (https://github.com/nasa/NASA-3D-Resources), contenu NASA sans droits d'auteur.
+  Modifications : decompression Draco, repere orbital (X avant, Y ferme, Z nadir),
+  ferme normalisee a 1 de large, recentrage sur l'axe de la ferme, ailes solaires
+  separees du corps (noeuds "corps" et "ailes"), materiaux simplifies.
