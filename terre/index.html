@@ -4,17 +4,29 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Terre - jour et nuit</title>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
 <script>
-// Si le script principal ne se charge pas ou plante (module bloque en file://,
-// navigateur trop ancien...), on le dit a l'ecran au lieu de laisser un fond vide.
-window.addEventListener("error", function (e) {
+// ES3 volontairement (pas de fleche, let, const, gabarit) : ce script doit
+// tourner meme dans Internet Explorer / MSHTML, ou certains logiciels de fond
+// d'ecran affichent les pages. La page elle-meme (WebGL2, modules) n'y tourne
+// pas ; on le dit a l'ecran au lieu d'une boite d'erreur de script.
+function terreMessage(t) {
   var m = document.getElementById("msg");
   if (!m) return;
+  m.style.display = window.Promise ? "flex" : "block";
+  m.style.position = "absolute"; m.style.top = "30%"; m.style.left = "10%"; m.style.right = "10%";
+  m.innerHTML = t;
+}
+var TERRE_OBSOLETE = "Ce navigateur (Internet Explorer ou un moteur ancien) est trop vieux pour afficher la page : " +
+  "il faut un moteur r&eacute;cent (Chromium, WebGL2). Utilise un logiciel de fond d'&eacute;cran bas&eacute; sur Chromium, " +
+  "par exemple Lively Wallpaper.";
+function terreErreur(e) {
   var t = e.target && e.target !== window ? "Fichier non charge : " + (e.target.src || e.target.href) : "Erreur : " + (e.message || "inconnue");
   if (location.protocol === "file:") t += " - ouvre fond.html (version autonome) plutot que index.html.";
-  m.style.display = "flex";
-  m.textContent = t;
-}, true);
+  terreMessage(t);
+}
+if (window.addEventListener) window.addEventListener("error", terreErreur, true);
+else window.onerror = function (m) { terreMessage("Erreur : " + m + "<br>" + TERRE_OBSOLETE); return true; };
 </script>
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #03061a; }
@@ -101,9 +113,10 @@ window.addEventListener("error", function (e) {
   <p class="version" id="version"></p>
 </div>
 
+<script nomodule>terreMessage(TERRE_OBSOLETE);</script>
 <script type="importmap">
 { "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/jsm/" } }
 </script>
-<script type="module" src="terre.js?v=3.6"></script>
+<script type="module" src="terre.js?v=3.7"></script>
 </body>
 </html>

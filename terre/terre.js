@@ -16,7 +16,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { soleilDansVue, pointDansVue } from "./soleil.js";
 
-const VERSION = "3.6";
+const VERSION = "3.7";
 
 const DEFAUTS = {
   lat: 43.6, lon: 1.4,          // centre de la vue, degres

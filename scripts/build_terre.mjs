@@ -23,8 +23,14 @@ writeFileSync(dossier + "fond-assets.js", "window.TERRE_ASSETS = " + JSON.string
 
 let html = readFileSync(dossier + "index.html", "utf8");
 const avant = html.length;
-html = html.replace(/<script type="importmap">[\s\S]*?<\/script>\s*/, "")
-  .replace(/<script type="module" src="terre\.js[^"]*"><\/script>/, '<script src="fond-assets.js"></script>\n<script src="fond.js"></script>');
+// Chargeur ES3 : sur un moteur trop ancien (Internet Explorer) on affiche le
+// message au lieu de charger un script qui y provoquerait des erreurs de syntaxe.
+const chargeur = '<script>\nif (window.Promise && window.Symbol && window.addEventListener) {\n' +
+  '  document.write(\'<script src="fond-assets.js"><\\/script><script src="fond.js"><\\/script>\');\n' +
+  '} else { terreMessage(TERRE_OBSOLETE); }\n</script>';
+html = html.replace(/<script nomodule>[\s\S]*?<\/script>\s*/, "")
+  .replace(/<script type="importmap">[\s\S]*?<\/script>\s*/, "")
+  .replace(/<script type="module" src="terre\.js[^"]*"><\/script>/, chargeur);
 if (html.length === avant || !html.includes("fond.js")) throw new Error("index.html : balises de script introuvables");
 writeFileSync(dossier + "fond.html", html);
 console.log("fond.html, fond.js, fond-assets.js ecrits");
