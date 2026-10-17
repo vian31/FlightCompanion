@@ -7,6 +7,8 @@
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #03061a; }
   canvas { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  #toile { touch-action: none; cursor: grab; }
+  #toile:active { cursor: grabbing; }
   #avions { pointer-events: none; }
   #msg { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
          color: #8896b0; font: 16px sans-serif; text-align: center; padding: 2em; }
@@ -22,6 +24,8 @@
              border: 1px solid #2a3a5c; border-radius: 10px; padding: 6px 16px 14px;
              font: 16px sans-serif; box-shadow: 0 6px 30px rgba(0, 0, 0, 0.6); }
   #panneau.ouvert { display: block; }
+  #panneau .aide { margin: 8px 0 0; color: #8896b0; }
+  #panneau .version { margin: 14px 0 0; color: #8896b0; text-align: center; }
   #panneau h2 { font-size: 16px; color: #7fa6ff; margin: 14px 0 4px; text-transform: uppercase;
                 letter-spacing: 0.05em; }
   #panneau label { display: grid; grid-template-columns: 1fr 58px; align-items: center;
@@ -45,9 +49,10 @@
 <button id="engrenage" title="R&eacute;glages">&#9881;</button>
 <div id="panneau">
   <h2>Globe</h2>
-  <label>Taille <output></output><input type="range" data-cle="taille" min="0.2" max="1.5" step="0.01"></label>
-  <label>Position horizontale <output></output><input type="range" data-cle="cx" min="0" max="1" step="0.01"></label>
-  <label>Position verticale <output></output><input type="range" data-cle="cy" min="0" max="1" step="0.01"></label>
+  <p class="aide">Glisser : tourner &middot; molette / pincement : taille &middot; clic droit ou deux doigts : d&eacute;placer &middot; double clic : recentrer</p>
+  <label>Taille <output></output><input type="range" data-cle="taille" min="0.15" max="4" step="0.01"></label>
+  <label>Position horizontale <output></output><input type="range" data-cle="cx" min="-1" max="2" step="0.01"></label>
+  <label>Position verticale <output></output><input type="range" data-cle="cy" min="-1" max="2" step="0.01"></label>
   <label>Latitude du centre <output></output><input type="range" data-cle="lat" min="-90" max="90" step="0.5"></label>
   <label>Longitude du centre <output></output><input type="range" data-cle="lon" min="-180" max="180" step="0.5"></label>
 
@@ -65,6 +70,11 @@
   <label>Luminosit&eacute; <output></output><input type="range" data-cle="brumeLum" min="0" max="2" step="0.05"></label>
   <label class="case">Teinte <input type="color" data-cle="brumeTeinte"></label>
 
+  <h2>Station spatiale (ISS)</h2>
+  <label class="case">Afficher <input type="checkbox" data-cle="iss"></label>
+  <label>Taille <output></output><input type="range" data-cle="issTaille" min="0.5" max="3" step="0.1"></label>
+  <label class="case">Trace de l'orbite <input type="checkbox" data-cle="issTrace"></label>
+
   <h2>Avions</h2>
   <label>Nombre <output></output><input type="range" data-cle="avions" min="0" max="30" step="1"></label>
   <label>Taille <output></output><input type="range" data-cle="avionTaille" min="0.3" max="3" step="0.1"></label>
@@ -76,6 +86,7 @@
     <button id="bDefaut">Valeurs par d&eacute;faut</button>
     <button id="bFermer">Fermer</button>
   </div>
+  <p class="version" id="version"></p>
 </div>
 
 <script type="module" src="terre.js"></script>

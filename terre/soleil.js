@@ -45,3 +45,14 @@ export function soleilDansVue(ms, lat0, lon0) {
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   return { sv: [dot(s, ex), dot(s, ey), dot(s, ez)], sub };
 }
+
+// Vecteur unitaire d'un point (lat, lon en degres) dans le meme repere de vue
+export function pointDansVue(lat, lon, lat0, lon0) {
+  const p = lat * DEG, l = lon * DEG, p0 = lat0 * DEG, l0 = lon0 * DEG;
+  const s = [Math.cos(p) * Math.cos(l), Math.cos(p) * Math.sin(l), Math.sin(p)];
+  const ex = [-Math.sin(l0), Math.cos(l0), 0];
+  const ey = [-Math.sin(p0) * Math.cos(l0), -Math.sin(p0) * Math.sin(l0), Math.cos(p0)];
+  const ez = [Math.cos(p0) * Math.cos(l0), Math.cos(p0) * Math.sin(l0), Math.sin(p0)];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  return [dot(s, ex), dot(s, ey), dot(s, ez)];
+}
