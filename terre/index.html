@@ -50,11 +50,6 @@
 <div id="panneau">
   <h2>Globe</h2>
   <p class="aide">Glisser : tourner &middot; molette / pincement : taille &middot; clic droit ou deux doigts : d&eacute;placer &middot; double clic : recentrer</p>
-  <label>Taille <output></output><input type="range" data-cle="taille" min="0.15" max="4" step="0.01"></label>
-  <label>Position horizontale <output></output><input type="range" data-cle="cx" min="-1" max="2" step="0.01"></label>
-  <label>Position verticale <output></output><input type="range" data-cle="cy" min="-1" max="2" step="0.01"></label>
-  <label>Latitude du centre <output></output><input type="range" data-cle="lat" min="-90" max="90" step="0.5"></label>
-  <label>Longitude du centre <output></output><input type="range" data-cle="lon" min="-180" max="180" step="0.5"></label>
 
   <h2>Ciel</h2>
   <label>Nombre d'&eacute;toiles <output></output><input type="range" data-cle="etoiles" min="0" max="3000" step="50"></label>
@@ -73,6 +68,7 @@
   <h2>Station spatiale (ISS)</h2>
   <label class="case">Afficher <input type="checkbox" data-cle="iss"></label>
   <label>Taille <output></output><input type="range" data-cle="issTaille" min="0.5" max="3" step="0.1"></label>
+  <label class="case">Afficher l'&eacute;tiquette <input type="checkbox" data-cle="issLabel"></label>
   <label class="case">Trace de l'orbite <input type="checkbox" data-cle="issTrace"></label>
 
   <h2>Avions</h2>

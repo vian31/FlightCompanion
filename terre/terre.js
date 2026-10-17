@@ -14,7 +14,7 @@
 // ============================================================
 import { soleilDansVue, pointDansVue } from "./soleil.js";
 
-const VERSION = "2.0";
+const VERSION = "2.1";
 
 const DEFAUTS = {
   lat: 43.6, lon: 1.4,          // centre de la vue, degres
@@ -33,7 +33,8 @@ const DEFAUTS = {
   avionDist: 0.12,              // altitude, en rayons du globe
   avionVit: 0.5,                // tours par minute
   iss: 1,                       // station spatiale internationale
-  issTaille: 1,                 // 1 = 24 px de long
+  issTaille: 1,                 // 1 = 0,5 px par metre (ferme de 108 m = 54 px)
+  issLabel: 1,                  // etiquette "ISS"
   issTrace: 1,                  // trace de l'orbite (passe plein, avenir pointille)
 };
 const CLE_STOCKAGE = "terre.reglages";
@@ -633,45 +634,146 @@ function dessineIss() {
   }
   if (cache(P)) return;
 
-  // la ferme est perpendiculaire a la vitesse, vue a l'ecran
   const Q = issDansVue(ms + 20000) || P;
-  const [x, y] = ecran(P), [xq, yq] = ecran(Q);
-  const cap = Math.atan2(yq - y, xq - x);
   const allume = eclaire(P);
-  const u = reglages.issTaille * dpr * (1 + 0.1 * P[2]);   // 1 unite = 1 px, ferme de 24 unites
+  const [x, y] = ecran(P);
+  const px = 0.5 * reglages.issTaille * dpr;                 // pixels par metre
 
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(cap + Math.PI / 2);
-  ctx.scale(u, u);
-  const halo = ctx.createRadialGradient(0, 0, 1, 0, 0, 16);
-  halo.addColorStop(0, allume ? "rgba(170, 210, 255, 0.35)" : "rgba(90, 120, 180, 0.2)");
+  // halo discret pour la retrouver sur le fond noir
+  const halo = ctx.createRadialGradient(x, y, 0, x, y, 40 * px);
+  halo.addColorStop(0, allume ? "rgba(170, 210, 255, 0.22)" : "rgba(90, 120, 180, 0.1)");
   halo.addColorStop(1, "rgba(170, 210, 255, 0)");
   ctx.fillStyle = halo;
-  ctx.beginPath(); ctx.arc(0, 0, 16, 0, 2 * Math.PI); ctx.fill();
+  ctx.beginPath(); ctx.arc(x, y, 40 * px, 0, 2 * Math.PI); ctx.fill();
 
-  const panneau = allume ? "#e2b04e" : "#5b5036";
-  const coque = allume ? "#f1f4fb" : "#4a5470";
-  ctx.fillStyle = coque;
-  ctx.fillRect(-12, -0.7, 24, 1.4);                          // ferme, perpendiculaire a la vitesse
-  ctx.fillStyle = panneau;
-  for (const sx of [-1, 1]) {
-    ctx.fillRect(sx * 9.5 - 1.8, -10, 3.6, 8);              // grands panneaux, de part et d'autre de la ferme
-    ctx.fillRect(sx * 9.5 - 1.8, 2, 3.6, 8);
-    ctx.fillRect(sx * 3.8 - 1.5, -8, 3, 6);
-    ctx.fillRect(sx * 3.8 - 1.5, 2, 3, 6);
+  dessineModeleIss(P, Q, x, y, px, allume);
+
+  if (reglages.issLabel) {
+    ctx.font = `bold ${16 * dpr}px sans-serif`;
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = allume ? "rgba(205, 225, 255, 0.95)" : "rgba(120, 140, 185, 0.9)";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+    ctx.shadowBlur = 4 * dpr;
+    ctx.fillText("ISS", x + 60 * px, y - 30 * px);
+    ctx.shadowBlur = 0;
   }
-  ctx.fillStyle = coque;
-  ctx.fillRect(-1.6, -3.2, 3.2, 6.4);                        // modules
-  ctx.restore();
+}
 
-  ctx.font = `bold ${16 * dpr}px sans-serif`;
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = allume ? "rgba(205, 225, 255, 0.95)" : "rgba(120, 140, 185, 0.9)";
-  ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-  ctx.shadowBlur = 4 * dpr;
-  ctx.fillText("ISS", x + 16 * reglages.issTaille * dpr, y - 14 * reglages.issTaille * dpr);
-  ctx.shadowBlur = 0;
+// ------------------------------------------------------------
+//  Modele 3D de l'ISS : une quarantaine de pavés (metres), orientes comme la
+//  vraie station en repere orbital - modules vers l'avant (vitesse), ferme
+//  selon la normale a l'orbite, bas vers la Terre - puis projetes en
+//  orthographique dans la vue, faces arriere eliminees, tri du fond vers
+//  l'avant, ombrage de Lambert avec le Soleil reel. Les ailes solaires
+//  tournent autour de la ferme pour faire face au Soleil, comme les vraies
+//  (joints alpha).
+// ------------------------------------------------------------
+const ISS_X = 9;                      // position de la ferme le long des modules
+const ISS_MODULES = [                 // [x0, x1, y0, y1, diametre, couleur]
+  [-23, -13, 0, 0, 4.2, "#d9dadf"],   // Zvezda
+  [-13, 0, 0, 0, 4.1, "#e4e4e8"],     // Zarya
+  [0, 5, 0, 0, 4.6, "#ececf0"],       // Unity
+  [5, 13, 0, 0, 4.3, "#e8e8ec"],      // Destiny (porte la ferme)
+  [13, 18, 0, 0, 4.6, "#ececf0"],     // Harmony
+  [15.5, 15.5, 5, 13, 4.2, "#e4e4e8"],    // Columbus
+  [15.5, 15.5, -14, -5, 4.4, "#e4e4e8"],  // Kibo
+];
+const ISS_SEGMENTS_FERME = [-54, -44, -34, -22, -11, 11, 22, 34, 44, 54];
+
+function dessineModeleIss(P, Q, x, y, px, allume) {
+  const nP = Math.hypot(P[0], P[1], P[2]);
+  const Z = [-P[0] / nP, -P[1] / nP, -P[2] / nP];                    // nadir
+  let X = [Q[0] - P[0], Q[1] - P[1], Q[2] - P[2]];                   // avant (vitesse)
+  const k = X[0] * Z[0] + X[1] * Z[1] + X[2] * Z[2];
+  X = normalise([X[0] - k * Z[0], X[1] - k * Z[1], X[2] - k * Z[2]]);
+  const Y = vectoriel(Z, X);                                         // normale a l'orbite (ferme)
+  const comb = (a, b, c) => [a[0] + b[0] + c[0], a[1] + b[1] + c[1], a[2] + b[2] + c[2]];
+  const mul = (u, f) => [u[0] * f, u[1] * f, u[2] * f];
+  const pt = (mx, my, mz) => comb(mul(X, mx), mul(Y, my), mul(Z, mz));  // metres -> repere de vue
+
+  // direction des ailes : normale = soleil projete dans le plan orbital
+  const dS = soleil[0] * Y[0] + soleil[1] * Y[1] + soleil[2] * Y[2];
+  let n = [soleil[0] - dS * Y[0], soleil[1] - dS * Y[1], soleil[2] - dS * Y[2]];
+  n = Math.hypot(n[0], n[1], n[2]) < 1e-3 ? Z : normalise(n);
+  const w = vectoriel(Y, n);                                         // axe long des ailes
+
+  const boites = [];
+  const boite = (c, ax, h, famille) => boites.push({ c, ax, h, famille });
+  const aligne = (cx, cy, cz, hx, hy, hz, famille) => boite(pt(cx, cy, cz), [X, Y, Z], [hx, hy, hz], famille);
+
+  for (const [x0, x1, y0, y1, d, coul] of ISS_MODULES) {
+    const r = d / 2;
+    if (y0 === y1) aligne((x0 + x1) / 2, 0, 0, (x1 - x0) / 2, r, r, coul);
+    else aligne(x0, (y0 + y1) / 2, 0, r, (y1 - y0) / 2, r, coul);
+  }
+  aligne(-23.5, 0, 0, 0.6, 1.4, 1.4, "#b9bcc6");                     // arriere de Zvezda
+  aligne(18.6, 0, 0, 0.6, 1.4, 1.4, "#b9bcc6");                      // amarrage avant
+  aligne(2.5, 0, 3.6, 1.5, 1.5, 2, "#e0e0e6");                       // noeud nadir
+  aligne(2.5, 0, -3.6, 1.5, 1.5, 2, "#e0e0e6");                      // noeud zenith
+  // petites ailes russes sur Zvezda
+  for (const sy of [-1, 1]) aligne(-19, sy * 9, 0.4, 3.5, 5.5, 0.15, "#2a3f7a");
+  // ferme : poutre continue + armatures
+  aligne(ISS_X, 0, -3, 1.0, 54, 1.0, "#aeb2bd");
+  for (const yy of ISS_SEGMENTS_FERME) aligne(ISS_X, yy, -3, 1.4, 0.5, 1.4, "#c9ccd6");
+  // radiateurs thermiques blancs, de part et d'autre du centre
+  for (const sy of [-1, 1]) {
+    aligne(ISS_X + 1, sy * 15, 2.5, 0.1, 5.5, 3.2, "#f2f2f5");
+    aligne(ISS_X - 1.8, sy * 15, 2.5, 0.1, 5.5, 3.2, "#f2f2f5");
+  }
+  // quatre paires d'ailes (deux lames par paire) ; centre sur la ferme
+  const ailes = [];
+  for (const yy of [-48, -27, 27, 48]) {
+    for (const sg of [-1, 1]) {
+      const c = comb(pt(ISS_X, yy, -3), mul(w, sg * 19.5), [0, 0, 0]);
+      boites.push({ c, ax: [Y, w, n], h: [5.8, 17.5, 0.12], famille: "aile" });
+    }
+    // mat central entre les deux lames
+    boite(pt(ISS_X, yy, -3), [Y, w, n], [0.4, 2, 0.4], "#8a8e99");
+  }
+
+  // faces visibles, triees du fond vers l'avant
+  const faces = [];
+  for (const b of boites) {
+    for (let a = 0; a < 3; a++) {
+      for (const sg of [-1, 1]) {
+        const N = mul(b.ax[a], sg);
+        if (N[2] <= 0.001) continue;                                   // dos a l'observateur
+        const a1 = b.ax[(a + 1) % 3], a2 = b.ax[(a + 2) % 3];
+        const h1 = b.h[(a + 1) % 3], h2 = b.h[(a + 2) % 3];
+        const F = comb(b.c, mul(N, b.h[a]), [0, 0, 0]);
+        const coin = (s1, s2) => comb(F, mul(a1, s1 * h1), mul(a2, s2 * h2));
+        faces.push({ N, z: F[2], pts: [coin(1, 1), coin(-1, 1), coin(-1, -1), coin(1, -1)], famille: b.famille,
+                     faceSoleil: N[0] * n[0] + N[1] * n[1] + N[2] * n[2] > 0 });
+      }
+    }
+  }
+  faces.sort((f, g) => f.z - g.z);
+
+  const lumiere = soleil;
+  const { dpr } = vue;
+  ctx.lineJoin = "round";
+  ctx.lineWidth = Math.max(0.5, 0.5 * dpr);
+  for (const f of faces) {
+    let base;
+    if (f.famille === "aile") base = f.faceSoleil ? [34, 58, 128] : [168, 128, 58];
+    else base = couleurRvb(f.famille);
+    const dif = Math.max(0, f.N[0] * lumiere[0] + f.N[1] * lumiere[1] + f.N[2] * lumiere[2]);
+    const terre = Math.max(0, -(f.N[0] * Z[0] + f.N[1] * Z[1] + f.N[2] * Z[2])) * 0.5;   // lumiere renvoyee par la Terre
+    let e = allume ? 0.22 + 0.85 * dif + 0.12 * terre : 0.2 + 0.25 * terre;
+    if (f.famille === "aile" && f.faceSoleil && allume) e += 0.35 * Math.pow(dif, 8);     // reflet sur les cellules
+    const r = Math.min(255, base[0] * e + (allume ? 0 : 6)), g = Math.min(255, base[1] * e + (allume ? 0 : 9)),
+          bl = Math.min(255, base[2] * e + (allume ? 0 : 18));
+    ctx.fillStyle = `rgb(${r | 0},${g | 0},${bl | 0})`;
+    ctx.strokeStyle = `rgba(0, 0, 0, ${f.famille === "aile" ? 0.35 : 0.25})`;
+    ctx.beginPath();
+    f.pts.forEach((c, i) => {
+      const sx = x + c[0] * px, sy = y - c[1] * px;
+      if (i) ctx.lineTo(sx, sy); else ctx.moveTo(sx, sy);
+    });
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
 }
 
 // ------------------------------------------------------------
@@ -795,7 +897,6 @@ engrenage.addEventListener("click", () => panneau.classList.toggle("ouvert"));
 const TAILLE_MIN = 0.15, TAILLE_MAX = 4, CENTRE_MIN = -1, CENTRE_MAX = 2;
 const bornes = (x, a, b) => Math.max(a, Math.min(b, x));
 const pointeurs = new Map();                       // id -> {x, y, mode, x0, y0, t0}
-const CHAMPS_VUE = ["lat", "lon", "taille", "cx", "cy"];
 let minuterieSauvegarde = 0, dernierTape = null;
 
 function metAJourVue() {
@@ -804,7 +905,6 @@ function metAJourVue() {
   reglages.cy = bornes(reglages.cy, CENTRE_MIN, CENTRE_MAX);
   reglages.lat = bornes(reglages.lat, -90, 90);
   reglages.lon = ((reglages.lon + 180) % 360 + 360) % 360 - 180;
-  for (const el of champs) if (CHAMPS_VUE.includes(el.dataset.cle)) afficheChamp(el);
   demandeRendu();
   clearTimeout(minuterieSauvegarde);
   minuterieSauvegarde = setTimeout(sauve, 400);
