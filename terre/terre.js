@@ -14,9 +14,9 @@
 // ============================================================
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { soleilDansVue, pointDansVue } from "./soleil.js?v=3.2";
+import { soleilDansVue, pointDansVue } from "./soleil.js?v=3.3";
 
-const VERSION = "3.2";
+const VERSION = "3.3";
 
 const DEFAUTS = {
   lat: 43.6, lon: 1.4,          // centre de la vue, degres
@@ -40,6 +40,7 @@ const DEFAUTS = {
   issTrace: 1,                  // trace de l'orbite (trait continu, s'estompe aux extremites)
   issCouleur: "#96c8ff",        // couleur de la trace
   issReflet: 1,                 // intensite des reflets sur les panneaux solaires
+  issPrevision: 0,              // trace des 24 prochaines heures, etiquettes +4 h, +8 h...
 };
 const CLE_STOCKAGE = "terre.reglages";
 const MAX_ETOILES = 3000;
@@ -572,6 +573,62 @@ try {
   if (Array.isArray(garde) && garde.every((e) => Number.isFinite(e.t + e.lat + e.lon + e.alt))) issPos = garde;
 } catch (e) { /* pas de cache */ }
 
+// ------------------------------------------------------------
+//  Prevision a 24 h : orbite circulaire ajustee sur les positions de l'API
+//  (plan orbital = moyenne des normales, vitesse angulaire par moindres
+//  carres), propagee dans le repere inertiel avec la regression du noeud due
+//  a l'aplatissement de la Terre (J2, -5 deg/jour pour l'ISS), puis ramenee au
+//  repere terrestre par la rotation de la Terre. Quelques degres d'erreur
+//  possibles en fin de journee (frottement, excentricite) : c'est une
+//  tendance, pas une ephemeride.
+// ------------------------------------------------------------
+const NOEUD_ISS = -1.005e-6;              // rad/s, regression du noeud ascendant
+const gmst = (ms) => (((280.46061837 + 360.98564736629 * (ms / 86400000 - 10957.5)) % 360) + 360) % 360 * Math.PI / 180;
+function rotZ(v, a) {
+  const c = Math.cos(a), s = Math.sin(a);
+  return [v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]];
+}
+let modeleOrbite = null, previsionPts = null;
+
+function ajusteOrbite(pos) {
+  if (pos.length < 3) return null;
+  const t0 = pos[0].t;
+  const w = pos.map((p) => rotZ(vecteurGeo(p.lat, p.lon), gmst(p.t)));       // repere inertiel
+  let n = [0, 0, 0];
+  for (let i = 0; i + 1 < w.length; i++) {
+    const c = vectoriel(w[i], w[i + 1]);
+    n = [n[0] + c[0], n[1] + c[1], n[2] + c[2]];
+  }
+  n = normalise(n);
+  const k = w[0][0] * n[0] + w[0][1] * n[1] + w[0][2] * n[2];
+  const a = normalise([w[0][0] - k * n[0], w[0][1] - k * n[1], w[0][2] - k * n[2]]);
+  const b = vectoriel(n, a);
+  let prec = 0, dt = [], ph = [];
+  for (let i = 0; i < w.length; i++) {
+    let f = Math.atan2(w[i][0] * b[0] + w[i][1] * b[1] + w[i][2] * b[2], w[i][0] * a[0] + w[i][1] * a[1] + w[i][2] * a[2]);
+    while (f - prec > Math.PI) f -= 2 * Math.PI;
+    while (f - prec < -Math.PI) f += 2 * Math.PI;
+    prec = f;
+    dt.push((pos[i].t - t0) / 1000); ph.push(f);
+  }
+  const moy = (x) => x.reduce((u, v) => u + v, 0) / x.length;
+  const mt = moy(dt), mp = moy(ph);
+  let num = 0, den = 0;
+  for (let i = 0; i < dt.length; i++) { num += (dt[i] - mt) * (ph[i] - mp); den += (dt[i] - mt) ** 2; }
+  if (!(den > 0)) return null;
+  // la regression du noeud, comptee deux fois sinon, ajoute n.z * NOEUD a la vitesse mesuree dans le plan fixe
+  const om = num / den - NOEUD_ISS * n[2];
+  return { t0, a, b, om, phi0: mp - om * mt, d: 1 + moy(pos.map((p) => p.alt)) / RAYON_TERRE_KM };
+}
+
+// vecteur unitaire terrestre (x, y, z) de l'ISS a l'instant ms selon le modele
+function positionModele(m, ms) {
+  const dt = (ms - m.t0) / 1000, f = m.phi0 + m.om * dt;
+  const c = Math.cos(f), s = Math.sin(f);
+  const v = [c * m.a[0] + s * m.b[0], c * m.a[1] + s * m.b[1], c * m.a[2] + s * m.b[2]];
+  return rotZ(rotZ(v, NOEUD_ISS * dt), -gmst(ms));
+}
+
 async function chargeIss() {
   const t0 = Math.floor(instant() / 1000);
   const ts = [];
@@ -583,6 +640,8 @@ async function chargeIss() {
     .filter((e) => Number.isFinite(e.t + e.lat + e.lon + e.alt)).sort((p, q) => p.t - q.t);
   if (pos.length < 2) throw new Error("ISS : reponse vide");
   issPos = pos;
+  modeleOrbite = ajusteOrbite(pos);
+  previsionPts = null;
   try { localStorage.setItem(CLE_ISS, JSON.stringify(pos)); } catch (e) { /* ignore */ }
 }
 
@@ -622,6 +681,65 @@ function issDansVue(ms) {
   return [P[0] * d, P[1] * d, P[2] * d];
 }
 
+const PAS_PREVISION = 120000, HEURES_PREVISION = 24, NB_TRANCHES = 8;
+function dessinePrevision(ms) {
+  const m = modeleOrbite, { cx, cy, R, dpr } = vue;
+  // points precalcules toutes les 2 min, regeneres toutes les 20 min
+  if (!previsionPts || previsionPts.modele !== m || ms - previsionPts.debut > 20 * 60000 || ms < previsionPts.debut) {
+    const n = (HEURES_PREVISION * 60 + 30) / 2 + 1, xyz = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) xyz.set(positionModele(m, ms + i * PAS_PREVISION), i * 3);
+    previsionPts = { modele: m, debut: ms, n, xyz };
+  }
+  // repere de vue : projection d'un vecteur terrestre, comme pointDansVue
+  const p0 = reglages.lat * Math.PI / 180, l0 = reglages.lon * Math.PI / 180;
+  const ex = [-Math.sin(l0), Math.cos(l0), 0];
+  const ey = [-Math.sin(p0) * Math.cos(l0), -Math.sin(p0) * Math.sin(l0), Math.cos(p0)];
+  const ez = [Math.cos(p0) * Math.cos(l0), Math.cos(p0) * Math.sin(l0), Math.sin(p0)];
+  const proj = (x, y, z) => [(x * ex[0] + y * ex[1] + z * ex[2]) * m.d, (x * ey[0] + y * ey[1] + z * ey[2]) * m.d,
+                              (x * ez[0] + y * ez[1] + z * ez[2]) * m.d];
+  const ecran = (Q) => [cx + R * Q[0], cy - R * Q[1]];
+
+  const rgb = couleurRvb(reglages.issCouleur);
+  const fin = ms + HEURES_PREVISION * 3600000;
+  const tranches = Array.from({ length: NB_TRANCHES }, () => []);
+  let prec = proj(...positionModele(m, ms));
+  const i0 = Math.floor((ms - previsionPts.debut) / PAS_PREVISION) + 1;
+  for (let i = i0; i < previsionPts.n; i++) {
+    const t = previsionPts.debut + i * PAS_PREVISION;
+    if (t > fin) break;
+    const Q = proj(previsionPts.xyz[i * 3], previsionPts.xyz[i * 3 + 1], previsionPts.xyz[i * 3 + 2]);
+    if (!cache(prec) && !cache(Q)) {
+      const tr = Math.min(NB_TRANCHES - 1, Math.floor((t - ms) / (fin - ms) * NB_TRANCHES));
+      tranches[tr].push(ecran(prec), ecran(Q));
+    }
+    prec = Q;
+  }
+  ctx.lineWidth = Math.max(1, dpr);
+  ctx.lineCap = "butt";
+  tranches.forEach((seg, tr) => {
+    if (!seg.length) return;
+    ctx.strokeStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${(0.7 * (1 - 0.65 * (tr + 0.5) / NB_TRANCHES)).toFixed(3)})`;
+    ctx.beginPath();
+    for (let i = 0; i < seg.length; i += 2) { ctx.moveTo(seg[i][0], seg[i][1]); ctx.lineTo(seg[i + 1][0], seg[i + 1][1]); }
+    ctx.stroke();
+  });
+
+  // reperes toutes les 4 h
+  ctx.font = `bold ${16 * dpr}px sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
+  ctx.shadowBlur = 4 * dpr;
+  for (let k = 1; k <= HEURES_PREVISION / 4; k++) {
+    const Q = proj(...positionModele(m, ms + k * 4 * 3600000));
+    if (cache(Q)) continue;
+    const [x, y] = ecran(Q);
+    ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+    ctx.beginPath(); ctx.arc(x, y, 3 * dpr, 0, 2 * Math.PI); ctx.fill();
+    ctx.fillText(`+${4 * k} h`, x + 7 * dpr, y - 7 * dpr);
+  }
+  ctx.shadowBlur = 0;
+}
+
 function dessineIss() {
   const ms = instant();
   const P = issDansVue(ms);
@@ -644,6 +762,7 @@ function dessineIss() {
     }
     traceLisse(pts, couleurRvb(reglages.issCouleur), Math.max(1, dpr));
   }
+  if (reglages.issPrevision && modeleOrbite) dessinePrevision(ms);
   if (cache(P)) return;
 
   if (reglages.issLabel) {
@@ -1017,6 +1136,7 @@ async function demarre() {
   gl.uniform1i(uni.uNuitTex, 1);
   gl.uniform1i(uni.uLut, 2);
   gl.uniform1i(uni.uEtoiles, 3);
+  modeleOrbite = ajusteOrbite(issPos);
   pret = true;
   rendu(true);
   lanceAnimation();
