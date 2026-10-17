@@ -14,9 +14,9 @@
 // ============================================================
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { soleilDansVue, pointDansVue } from "./soleil.js?v=3.3";
+import { soleilDansVue, pointDansVue } from "./soleil.js?v=3.4";
 
-const VERSION = "3.3";
+const VERSION = "3.4";
 
 const DEFAUTS = {
   lat: 43.6, lon: 1.4,          // centre de la vue, degres
@@ -40,7 +40,8 @@ const DEFAUTS = {
   issTrace: 1,                  // trace de l'orbite (trait continu, s'estompe aux extremites)
   issCouleur: "#96c8ff",        // couleur de la trace
   issReflet: 1,                 // intensite des reflets sur les panneaux solaires
-  issPrevision: 0,              // trace des 24 prochaines heures, etiquettes +4 h, +8 h...
+  issPrevision: 0,              // trace de l'ISS sur une fenetre de 12 h, etiquettes +4 h, +8 h...
+  issPrevDebut: 0,              // debut de la fenetre, en heures a partir de maintenant (0 a 12)
 };
 const CLE_STOCKAGE = "terre.reglages";
 const MAX_ETOILES = 3000;
@@ -681,12 +682,12 @@ function issDansVue(ms) {
   return [P[0] * d, P[1] * d, P[2] * d];
 }
 
-const PAS_PREVISION = 120000, HEURES_PREVISION = 24, NB_TRANCHES = 8;
+const PAS_PREVISION = 120000, HEURES_MAX = 24, FENETRE_PREVISION = 12, NB_TRANCHES = 8;
 function dessinePrevision(ms) {
   const m = modeleOrbite, { cx, cy, R, dpr } = vue;
   // points precalcules toutes les 2 min, regeneres toutes les 20 min
   if (!previsionPts || previsionPts.modele !== m || ms - previsionPts.debut > 20 * 60000 || ms < previsionPts.debut) {
-    const n = (HEURES_PREVISION * 60 + 30) / 2 + 1, xyz = new Float32Array(n * 3);
+    const n = (HEURES_MAX * 60 + 30) / 2 + 1, xyz = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) xyz.set(positionModele(m, ms + i * PAS_PREVISION), i * 3);
     previsionPts = { modele: m, debut: ms, n, xyz };
   }
@@ -700,16 +701,17 @@ function dessinePrevision(ms) {
   const ecran = (Q) => [cx + R * Q[0], cy - R * Q[1]];
 
   const rgb = couleurRvb(reglages.issCouleur);
-  const fin = ms + HEURES_PREVISION * 3600000;
+  const debut = ms + Math.max(0, Math.min(12, reglages.issPrevDebut)) * 3600000;   // fenetre [debut, fin]
+  const fin = debut + FENETRE_PREVISION * 3600000;
   const tranches = Array.from({ length: NB_TRANCHES }, () => []);
-  let prec = proj(...positionModele(m, ms));
-  const i0 = Math.floor((ms - previsionPts.debut) / PAS_PREVISION) + 1;
+  let prec = proj(...positionModele(m, debut));
+  const i0 = Math.floor((debut - previsionPts.debut) / PAS_PREVISION) + 1;
   for (let i = i0; i < previsionPts.n; i++) {
     const t = previsionPts.debut + i * PAS_PREVISION;
     if (t > fin) break;
     const Q = proj(previsionPts.xyz[i * 3], previsionPts.xyz[i * 3 + 1], previsionPts.xyz[i * 3 + 2]);
     if (!cache(prec) && !cache(Q)) {
-      const tr = Math.min(NB_TRANCHES - 1, Math.floor((t - ms) / (fin - ms) * NB_TRANCHES));
+      const tr = Math.min(NB_TRANCHES - 1, Math.floor((t - debut) / (fin - debut) * NB_TRANCHES));
       tranches[tr].push(ecran(prec), ecran(Q));
     }
     prec = Q;
@@ -729,8 +731,10 @@ function dessinePrevision(ms) {
   ctx.textBaseline = "middle";
   ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
   ctx.shadowBlur = 4 * dpr;
-  for (let k = 1; k <= HEURES_PREVISION / 4; k++) {
-    const Q = proj(...positionModele(m, ms + k * 4 * 3600000));
+  for (let k = 1; k <= HEURES_MAX / 4; k++) {
+    const t = ms + k * 4 * 3600000;
+    if (t < debut || t > fin) continue;
+    const Q = proj(...positionModele(m, t));
     if (cache(Q)) continue;
     const [x, y] = ecran(Q);
     ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
