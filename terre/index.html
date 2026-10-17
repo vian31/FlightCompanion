@@ -71,8 +71,7 @@
   <label>Taille <output></output><input type="range" data-cle="issTaille" min="0.5" max="3" step="0.1"></label>
   <label class="case">Afficher l'&eacute;tiquette <input type="checkbox" data-cle="issLabel"></label>
   <label class="case">Trace de l'orbite <input type="checkbox" data-cle="issTrace"></label>
-  <label class="case">Pr&eacute;vision sur 12 h (+4 h, +8 h&hellip;) <input type="checkbox" data-cle="issPrevision"></label>
-  <label>Fen&ecirc;tre de h &agrave; h+12, h = <output></output><input type="range" data-cle="issPrevDebut" min="0" max="12" step="0.5"></label>
+  <label>Pr&eacute;vision de la trace (h) <output></output><input type="range" data-cle="issPrevision" min="0" max="12" step="0.5"></label>
   <label class="case">Couleur de la trace <input type="color" data-cle="issCouleur"></label>
   <label>Reflets des panneaux <output></output><input type="range" data-cle="issReflet" min="0" max="2" step="0.05"></label>
 
@@ -93,6 +92,6 @@
 <script type="importmap">
 { "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/jsm/" } }
 </script>
-<script type="module" src="terre.js?v=3.4"></script>
+<script type="module" src="terre.js?v=3.5"></script>
 </body>
 </html>

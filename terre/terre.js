@@ -14,9 +14,9 @@
 // ============================================================
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { soleilDansVue, pointDansVue } from "./soleil.js?v=3.4";
+import { soleilDansVue, pointDansVue } from "./soleil.js?v=3.5";
 
-const VERSION = "3.4";
+const VERSION = "3.5";
 
 const DEFAUTS = {
   lat: 43.6, lon: 1.4,          // centre de la vue, degres
@@ -40,8 +40,7 @@ const DEFAUTS = {
   issTrace: 1,                  // trace de l'orbite (trait continu, s'estompe aux extremites)
   issCouleur: "#96c8ff",        // couleur de la trace
   issReflet: 1,                 // intensite des reflets sur les panneaux solaires
-  issPrevision: 0,              // trace de l'ISS sur une fenetre de 12 h, etiquettes +4 h, +8 h...
-  issPrevDebut: 0,              // debut de la fenetre, en heures a partir de maintenant (0 a 12)
+  issPrevision: 0,              // heures de trace a venir au-dela de la trace courte (0 = aucune, 12 au plus), etiquettes +4 h, +8 h...
 };
 const CLE_STOCKAGE = "terre.reglages";
 const MAX_ETOILES = 3000;
@@ -682,7 +681,7 @@ function issDansVue(ms) {
   return [P[0] * d, P[1] * d, P[2] * d];
 }
 
-const PAS_PREVISION = 120000, HEURES_MAX = 24, FENETRE_PREVISION = 12, NB_TRANCHES = 8;
+const PAS_PREVISION = 120000, HEURES_MAX = 12, NB_TRANCHES = 8;
 function dessinePrevision(ms) {
   const m = modeleOrbite, { cx, cy, R, dpr } = vue;
   // points precalcules toutes les 2 min, regeneres toutes les 20 min
@@ -701,8 +700,8 @@ function dessinePrevision(ms) {
   const ecran = (Q) => [cx + R * Q[0], cy - R * Q[1]];
 
   const rgb = couleurRvb(reglages.issCouleur);
-  const debut = ms + Math.max(0, Math.min(12, reglages.issPrevDebut)) * 3600000;   // fenetre [debut, fin]
-  const fin = debut + FENETRE_PREVISION * 3600000;
+  const debut = ms;                                                              // trace de maintenant a maintenant + h
+  const fin = ms + Math.max(0, Math.min(HEURES_MAX, reglages.issPrevision)) * 3600000;
   const tranches = Array.from({ length: NB_TRANCHES }, () => []);
   let prec = proj(...positionModele(m, debut));
   const i0 = Math.floor((debut - previsionPts.debut) / PAS_PREVISION) + 1;
@@ -766,7 +765,7 @@ function dessineIss() {
     }
     traceLisse(pts, couleurRvb(reglages.issCouleur), Math.max(1, dpr));
   }
-  if (reglages.issPrevision && modeleOrbite) dessinePrevision(ms);
+  if (reglages.issPrevision > 0 && modeleOrbite) dessinePrevision(ms);
   if (cache(P)) return;
 
   if (reglages.issLabel) {
