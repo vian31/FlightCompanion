@@ -14,9 +14,9 @@
 // ============================================================
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { soleilDansVue, pointDansVue } from "./soleil.js?v=3.5";
+import { soleilDansVue, pointDansVue } from "./soleil.js";
 
-const VERSION = "3.5";
+const VERSION = "3.6";
 
 const DEFAUTS = {
   lat: 43.6, lon: 1.4,          // centre de la vue, degres
@@ -44,6 +44,16 @@ const DEFAUTS = {
 };
 const CLE_STOCKAGE = "terre.reglages";
 const MAX_ETOILES = 3000;
+
+// Version autonome (fond.html, voir scripts/build_terre.mjs) : textures et modele
+// ISS integres en data: URI par fond-assets.js, donc rien a charger en reseau
+// (utile en file://, ou les navigateurs bloquent modules, fetch et textures WebGL).
+const ASSETS = window.TERRE_ASSETS || {};
+function binaire(uriData) {
+  const bin = atob(uriData.slice(uriData.indexOf(",") + 1)), o = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) o[i] = bin.charCodeAt(i);
+  return o.buffer;
+}
 
 const params = new URLSearchParams(location.search);
 const INSTANT_FIGE = params.has("t") ? Date.parse(params.get("t")) : NaN;
@@ -810,7 +820,8 @@ function initIss3d() {
   lumSoleil = new THREE.DirectionalLight(0xfff4e0, 3.2);
   lumTerre = new THREE.DirectionalLight(0x8fb4ff, 0);               // lumiere renvoyee par la Terre
   scene3d.add(lumSoleil, lumTerre);
-  new GLTFLoader().loadAsync("models/iss.glb").then((gltf) => {
+  (ASSETS.iss ? new Promise((ok, ko) => new GLTFLoader().parse(binaire(ASSETS.iss), "", ok, ko))
+    : new GLTFLoader().loadAsync("models/iss.glb")).then((gltf) => {
     groupeIss = new THREE.Group();
     // panneaux : verre sombre tres lisse (lobe speculaire etroit du Soleil) ; le reste : metal mat
     matPanneaux = new THREE.MeshPhysicalMaterial({
@@ -1131,7 +1142,7 @@ window.addEventListener("keydown", (e) => {
 // ------------------------------------------------------------
 async function demarre() {
   initGL();
-  const [jour, nuit] = await Promise.all([chargeImage("textures/jour.jpg"), chargeImage("textures/nuit.jpg")]);
+  const [jour, nuit] = await Promise.all([chargeImage(ASSETS.jour || "textures/jour.jpg"), chargeImage(ASSETS.nuit || "textures/nuit.jpg")]);
   textureCarte(0, jour);
   textureCarte(1, nuit);
   palette(nuit);

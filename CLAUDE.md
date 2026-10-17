@@ -94,6 +94,13 @@ fichiers locaux uniquement, police 16 px, `APP_VERSION`, `preview.html`,
   préférence quand c'est simple.
 - Versionner via la constante `VERSION` de `terre/terre.js` (affichée
   en bas du panneau de réglages) ; l'incrémenter pour les gros changements.
+- Deux entrées : `terre/index.html` (modules ES + importmap, servie en
+  http) et `terre/fond.html` (version autonome pour fond d'écran, ouvrable
+  en `file://` : un seul script classique, textures et modèle ISS en
+  data: URI). `fond.html`, `fond.js` et `fond-assets.js` sont **générés** :
+  après toute modif de `terre/` (JS, HTML, textures, modèle), lancer
+  `npm i --no-save esbuild && node scripts/build_terre.mjs` et les
+  commiter avec le reste.
 - Travail directement sur `main`, comme le reste du dépôt.
 
 # Stockage

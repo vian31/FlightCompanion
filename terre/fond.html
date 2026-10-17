@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terre - jour et nuit</title>
+<script>
+// Si le script principal ne se charge pas ou plante (module bloque en file://,
+// navigateur trop ancien...), on le dit a l'ecran au lieu de laisser un fond vide.
+window.addEventListener("error", function (e) {
+  var m = document.getElementById("msg");
+  if (!m) return;
+  var t = e.target && e.target !== window ? "Fichier non charge : " + (e.target.src || e.target.href) : "Erreur : " + (e.message || "inconnue");
+  if (location.protocol === "file:") t += " - ouvre fond.html (version autonome) plutot que index.html.";
+  m.style.display = "flex";
+  m.textContent = t;
+}, true);
+</script>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #03061a; }
+  canvas { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  #toile { touch-action: none; cursor: grab; }
+  #toile:active { cursor: grabbing; }
+  #iss3d, #avions { pointer-events: none; }
+  #msg { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+         color: #8896b0; font: 16px sans-serif; text-align: center; padding: 2em; }
+
+  #engrenage { position: fixed; right: 18px; bottom: 18px; width: 46px; height: 46px;
+               border-radius: 50%; border: 1px solid #2a3a5c; background: rgba(10, 18, 40, 0.75);
+               color: #9fb4dc; font-size: 26px; line-height: 44px; text-align: center; cursor: pointer;
+               opacity: 0; transition: opacity 0.4s; padding: 0; }
+  #engrenage.visible { opacity: 1; }
+
+  #panneau { position: fixed; right: 18px; bottom: 76px; width: 340px; max-height: calc(100vh - 100px);
+             overflow-y: auto; display: none; background: rgba(8, 14, 32, 0.92); color: #d4def0;
+             border: 1px solid #2a3a5c; border-radius: 10px; padding: 6px 16px 14px;
+             font: 16px sans-serif; box-shadow: 0 6px 30px rgba(0, 0, 0, 0.6); }
+  #panneau.ouvert { display: block; }
+  #panneau .aide { margin: 8px 0 0; color: #8896b0; }
+  #panneau .version { margin: 14px 0 0; color: #8896b0; text-align: center; }
+  #panneau h2 { font-size: 16px; color: #7fa6ff; margin: 14px 0 4px; text-transform: uppercase;
+                letter-spacing: 0.05em; }
+  #panneau label { display: grid; grid-template-columns: 1fr 58px; align-items: center;
+                   column-gap: 8px; margin: 6px 0 2px; }
+  #panneau label input[type=range] { grid-column: 1 / 3; width: 100%; accent-color: #6f9cff; }
+  #panneau output { text-align: right; color: #9fb4dc; font-variant-numeric: tabular-nums; }
+  #panneau label.case { grid-template-columns: 1fr auto; }
+  #panneau input[type=checkbox] { width: 20px; height: 20px; accent-color: #6f9cff; }
+  #panneau input[type=color] { width: 58px; height: 30px; border: none; background: none; padding: 0; }
+  #panneau .boutons { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  #panneau button { flex: 1; font: 16px sans-serif; padding: 8px 6px; border-radius: 6px;
+                    border: 1px solid #34497a; background: #14223f; color: #d4def0; cursor: pointer; }
+  #panneau button:hover { background: #1d3060; }
+</style>
+</head>
+<body>
+<canvas id="toile"></canvas>
+<canvas id="iss3d"></canvas>
+<canvas id="avions"></canvas>
+<div id="msg"></div>
+
+<button id="engrenage" title="R&eacute;glages">&#9881;</button>
+<div id="panneau">
+  <h2>Globe</h2>
+  <p class="aide">Glisser : tourner &middot; molette / pincement : taille &middot; clic droit ou deux doigts : d&eacute;placer &middot; double clic : recentrer</p>
+
+  <h2>Ciel</h2>
+  <label>Nombre d'&eacute;toiles <output></output><input type="range" data-cle="etoiles" min="0" max="3000" step="50"></label>
+
+  <h2>Nuit</h2>
+  <label>Luminosit&eacute; de l'ombre <output></output><input type="range" data-cle="ombre" min="0" max="2" step="0.05"></label>
+  <label>Luminosit&eacute; des villes <output></output><input type="range" data-cle="villes" min="0" max="3" step="0.05"></label>
+  <label class="case">Lignes de cr&eacute;puscule <input type="checkbox" data-cle="crepuscule"></label>
+
+  <h2>Brume c&ocirc;t&eacute; &eacute;clair&eacute;</h2>
+  <label class="case">Afficher <input type="checkbox" data-cle="brume"></label>
+  <label>&Eacute;paisseur <output></output><input type="range" data-cle="brumeEp" min="0.3" max="3" step="0.05"></label>
+  <label>Luminosit&eacute; <output></output><input type="range" data-cle="brumeLum" min="0" max="2" step="0.05"></label>
+  <label class="case">Teinte <input type="color" data-cle="brumeTeinte"></label>
+
+  <h2>Station spatiale (ISS)</h2>
+  <label class="case">Afficher <input type="checkbox" data-cle="iss"></label>
+  <label>Taille <output></output><input type="range" data-cle="issTaille" min="0.5" max="3" step="0.1"></label>
+  <label class="case">Afficher l'&eacute;tiquette <input type="checkbox" data-cle="issLabel"></label>
+  <label class="case">Trace de l'orbite <input type="checkbox" data-cle="issTrace"></label>
+  <label>Pr&eacute;vision de la trace (h) <output></output><input type="range" data-cle="issPrevision" min="0" max="12" step="0.5"></label>
+  <label class="case">Couleur de la trace <input type="color" data-cle="issCouleur"></label>
+  <label>Reflets des panneaux <output></output><input type="range" data-cle="issReflet" min="0" max="2" step="0.05"></label>
+
+  <h2>Avions</h2>
+  <label>Nombre <output></output><input type="range" data-cle="avions" min="0" max="30" step="1"></label>
+  <label>Taille <output></output><input type="range" data-cle="avionTaille" min="0.3" max="3" step="0.1"></label>
+  <label>Distance au globe <output></output><input type="range" data-cle="avionDist" min="0.02" max="1" step="0.01"></label>
+  <label>Vitesse (tours / min) <output></output><input type="range" data-cle="avionVit" min="0.05" max="5" step="0.05"></label>
+
+  <div class="boutons">
+    <button id="bLien" data-ok="Lien copi&eacute;">Copier le lien</button>
+    <button id="bDefaut">Valeurs par d&eacute;faut</button>
+    <button id="bFermer">Fermer</button>
+  </div>
+  <p class="version" id="version"></p>
+</div>
+
+<script src="fond-assets.js"></script>
+<script src="fond.js"></script>
+</body>
+</html>

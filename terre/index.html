@@ -4,6 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Terre - jour et nuit</title>
+<script>
+// Si le script principal ne se charge pas ou plante (module bloque en file://,
+// navigateur trop ancien...), on le dit a l'ecran au lieu de laisser un fond vide.
+window.addEventListener("error", function (e) {
+  var m = document.getElementById("msg");
+  if (!m) return;
+  var t = e.target && e.target !== window ? "Fichier non charge : " + (e.target.src || e.target.href) : "Erreur : " + (e.message || "inconnue");
+  if (location.protocol === "file:") t += " - ouvre fond.html (version autonome) plutot que index.html.";
+  m.style.display = "flex";
+  m.textContent = t;
+}, true);
+</script>
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #03061a; }
   canvas { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; }
@@ -92,6 +104,6 @@
 <script type="importmap">
 { "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/jsm/" } }
 </script>
-<script type="module" src="terre.js?v=3.5"></script>
+<script type="module" src="terre.js?v=3.6"></script>
 </body>
 </html>
