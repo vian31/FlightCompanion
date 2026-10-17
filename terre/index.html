@@ -71,6 +71,8 @@
   <label>Taille <output></output><input type="range" data-cle="issTaille" min="0.5" max="3" step="0.1"></label>
   <label class="case">Afficher l'&eacute;tiquette <input type="checkbox" data-cle="issLabel"></label>
   <label class="case">Trace de l'orbite <input type="checkbox" data-cle="issTrace"></label>
+  <label class="case">Couleur de la trace <input type="color" data-cle="issCouleur"></label>
+  <label>Reflets des panneaux <output></output><input type="range" data-cle="issReflet" min="0" max="2" step="0.05"></label>
 
   <h2>Avions</h2>
   <label>Nombre <output></output><input type="range" data-cle="avions" min="0" max="30" step="1"></label>
@@ -89,6 +91,6 @@
 <script type="importmap">
 { "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/jsm/" } }
 </script>
-<script type="module" src="terre.js"></script>
+<script type="module" src="terre.js?v=3.1"></script>
 </body>
 </html>

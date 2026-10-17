@@ -14,9 +14,9 @@
 // ============================================================
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { soleilDansVue, pointDansVue } from "./soleil.js";
+import { soleilDansVue, pointDansVue } from "./soleil.js?v=3.1";
 
-const VERSION = "3.0";
+const VERSION = "3.1";
 
 const DEFAUTS = {
   lat: 43.6, lon: 1.4,          // centre de la vue, degres
@@ -37,7 +37,9 @@ const DEFAUTS = {
   iss: 1,                       // station spatiale internationale
   issTaille: 1.5,               // 1 = ferme de 0,18 rayon du globe (suit le zoom)
   issLabel: 1,                  // etiquette "ISS"
-  issTrace: 1,                  // trace de l'orbite (passe plein, avenir pointille)
+  issTrace: 1,                  // trace de l'orbite (trait continu, s'estompe aux extremites)
+  issCouleur: "#96c8ff",        // couleur de la trace
+  issReflet: 1,                 // intensite des reflets sur les panneaux solaires
 };
 const CLE_STOCKAGE = "terre.reglages";
 const MAX_ETOILES = 3000;
@@ -434,6 +436,26 @@ function rendu(forcer) {
 // ------------------------------------------------------------
 const avions = [];
 
+// Trace lisse : un seul trait par tronçon visible, estompe par un degrade
+// lineaire entre le premier et le dernier point (pas de segments juxtaposes,
+// donc ni perles ni raccords). pts : [{x, y, vis}] ; arrets : [[position 0..1, alpha]]
+function traceLisse(pts, rgb, arrets, largeur) {
+  const a = pts[0], b = pts[pts.length - 1];
+  if (Math.hypot(b.x - a.x, b.y - a.y) < 1) return;
+  const g = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+  for (const [p, al] of arrets) g.addColorStop(p, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${al.toFixed(3)})`);
+  ctx.strokeStyle = g;
+  ctx.lineWidth = largeur;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  let enCours = false;
+  for (const p of pts) {
+    if (!p.vis) { if (enCours) ctx.stroke(); enCours = false; continue; }
+    if (!enCours) { ctx.beginPath(); ctx.moveTo(p.x, p.y); enCours = true; } else ctx.lineTo(p.x, p.y);
+  }
+  if (enCours) ctx.stroke();
+}
+
 function nouvelAvion() {
   // normale de l'orbite uniforme sur la sphere -> angle aleatoire autour du globe
   const z = Math.random() * 2 - 1, phi = Math.random() * 2 * Math.PI, s = Math.sqrt(1 - z * z);
@@ -476,7 +498,7 @@ function eclaire(P) {
 }
 
 const LONGUEUR_TRAINEE = 0.5;     // radians d'orbite
-const SEGMENTS_TRAINEE = 18;
+const SEGMENTS_TRAINEE = 60;
 
 function dessineAvion(av, t) {
   const { cx, cy, R, dpr } = vue;
@@ -484,21 +506,16 @@ function dessineAvion(av, t) {
   const P = positionAvion(av, av.theta);
   const allume = eclaire(P);
 
-  // trainee : segments de plus en plus transparents vers l'arriere
+  // trainee : un trait lisse qui s'efface vers l'arriere
   const taille = 16 * reglages.avionTaille * dpr;
-  ctx.lineCap = "round";
-  ctx.lineWidth = Math.max(1, taille * 0.12);
-  let prec = P;
-  for (let i = 1; i <= SEGMENTS_TRAINEE; i++) {
-    const Q = positionAvion(av, av.theta - av.sens * LONGUEUR_TRAINEE * i / SEGMENTS_TRAINEE);
-    if (!cache(prec) && !cache(Q)) {
-      const alpha = 0.45 * (1 - i / SEGMENTS_TRAINEE) * (eclaire(Q) ? 1 : 0.3);
-      const [x0, y0] = ecran(prec), [x1, y1] = ecran(Q);
-      ctx.strokeStyle = `rgba(225, 235, 255, ${alpha.toFixed(3)})`;
-      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-    }
-    prec = Q;
+  const pts = [];
+  for (let i = 0; i <= SEGMENTS_TRAINEE; i++) {
+    const Q = i === 0 ? P : positionAvion(av, av.theta - av.sens * LONGUEUR_TRAINEE * i / SEGMENTS_TRAINEE);
+    const [x, y] = ecran(Q);
+    pts.push({ x, y, vis: !cache(Q) });
   }
+  const k = allume ? 1 : 0.5;
+  traceLisse(pts, [225, 235, 255], [[0, 0.5 * k], [0.5, 0.2 * k], [1, 0]], Math.max(1, taille * 0.1));
   if (cache(P)) return;
 
   // cap a l'ecran et raccourci quand l'avion vient vers nous ou s'eloigne
@@ -618,22 +635,18 @@ function dessineIss() {
   const ecran = (Q) => [cx + R * Q[0], cy - R * Q[1]];
 
   if (reglages.issTrace) {
-    ctx.lineCap = "round";
-    ctx.lineWidth = Math.max(1, 1.6 * dpr);
-    let prec = null;
-    for (let m = -24; m <= 30; m++) {
-      const Q = issDansVue(ms + m * 60000);
-      if (Q && prec && !cache(prec) && !cache(Q)) {
-        const passe = m <= 0;
-        const alpha = (passe ? 0.15 + 0.5 * (1 + m / 24) : 0.45 * (1 - m / 30)) * (eclaire(Q) ? 1 : 0.45);
-        ctx.setLineDash(passe ? [] : [4 * dpr, 5 * dpr]);
-        ctx.strokeStyle = `rgba(150, 200, 255, ${alpha.toFixed(3)})`;
-        const [x0, y0] = ecran(prec), [x1, y1] = ecran(Q);
-        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-      }
-      prec = Q;
+    // 24 min passees, 30 min a venir, un point toutes les 30 s ; trait continu fin
+    const pts = [];
+    for (let m = -24 * 2; m <= 30 * 2; m++) {
+      const Q = issDansVue(ms + m * 30000);
+      if (!Q) { pts.length = 0; continue; }
+      const [x, y] = ecran(Q);
+      pts.push({ x, y, vis: !cache(Q) });
     }
-    ctx.setLineDash([]);
+    if (pts.length > 1) {
+      const f0 = 24 / 54;                                  // position de l'ISS le long de la trace
+      traceLisse(pts, couleurRvb(reglages.issCouleur), [[0, 0.05], [f0, 0.85], [1, 0.05]], Math.max(1, dpr));
+    }
   }
   if (cache(P)) return;
 
@@ -663,7 +676,7 @@ function dessineIss() {
 // ------------------------------------------------------------
 const ECHELLE_ISS = 0.18;             // envergure de la ferme / rayon du globe, pour issTaille = 1
 const canvas3d = document.getElementById("iss3d");
-let rendu3d = null, scene3d, camera3d, groupeIss = null, ailesIss, lumSoleil, lumTerre;
+let rendu3d = null, scene3d, camera3d, groupeIss = null, ailesIss, lumSoleil, lumTerre, matPanneaux, eclat;
 
 function initIss3d() {
   rendu3d = new THREE.WebGLRenderer({ canvas: canvas3d, alpha: true, antialias: true });
@@ -681,11 +694,27 @@ function initIss3d() {
   scene3d.add(lumSoleil, lumTerre);
   new GLTFLoader().loadAsync("models/iss.glb").then((gltf) => {
     groupeIss = new THREE.Group();
+    // panneaux : verre sombre tres lisse (lobe speculaire etroit du Soleil) ; le reste : metal mat
+    matPanneaux = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color().setRGB(0.03, 0.09, 0.42), metalness: 0.35, roughness: 0.3,
+      clearcoat: 0.8, clearcoatRoughness: 0.12, side: THREE.DoubleSide, emissive: 0x6fa0ff, emissiveIntensity: 0,
+    });
     gltf.scene.traverse((o) => {
       if (!o.isMesh) return;
-      o.material.metalness = 0.15;
-      if (o.material.name === "ISSSolarPanels") o.material.color.setRGB(0.03, 0.09, 0.42);
+      if (o.material.name === "ISSSolarPanels") o.material = matPanneaux;
+      else { o.material.metalness = 0.15; o.material.roughness = 0.55; }
     });
+    // eclat : halo additif quand un panneau renvoie le Soleil vers l'observateur
+    const c = document.createElement("canvas");
+    c.width = c.height = 64;
+    const g = c.getContext("2d");
+    const deg = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    deg.addColorStop(0, "rgba(255,255,255,1)"); deg.addColorStop(0.25, "rgba(200,225,255,0.45)");
+    deg.addColorStop(1, "rgba(160,200,255,0)");
+    g.fillStyle = deg; g.fillRect(0, 0, 64, 64);
+    eclat = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(c), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
+    scene3d.add(eclat);
     ailesIss = gltf.scene.getObjectByName("ailes");
     groupeIss.add(gltf.scene);
     scene3d.add(groupeIss);
@@ -718,6 +747,25 @@ function dessineIss3d(P, Q, allume) {
   const sx = soleil[0] * X[0] + soleil[1] * X[1] + soleil[2] * X[2];
   const sz = soleil[0] * Z[0] + soleil[1] * Z[1] + soleil[2] * Z[2];
   if (ailesIss && Math.hypot(sx, sz) > 1e-3) ailesIss.rotation.y = Math.atan2(-sz, sx);
+
+  // reflet : un panneau plan de normale n renvoie le Soleil dans la direction
+  // r = 2(n.S)n - S. L'observateur est vu comme un point a 3 rayons du centre du
+  // globe (et non a l'infini) pour que l'eclat depende aussi de la position de la
+  // station dans le disque. Eclat d'autant plus fort que r s'aligne sur la visee.
+  const nx = sx / Math.hypot(sx, sz) || 0, nz = sz / Math.hypot(sx, sz) || 0;
+  const n = [nx * X[0] + nz * Z[0], nx * X[1] + nz * Z[1], nx * X[2] + nz * Z[2]];
+  const ns = n[0] * soleil[0] + n[1] * soleil[1] + n[2] * soleil[2];
+  const r = [2 * ns * n[0] - soleil[0], 2 * ns * n[1] - soleil[1], 2 * ns * n[2] - soleil[2]];
+  const vue3 = normalise([-P[0], -P[1], 3 - P[2]]);
+  const align = r[0] * vue3[0] + r[1] * vue3[1] + r[2] * vue3[2];
+  const t = Math.max(0, Math.min(1, (align - 0.55) / 0.45));
+  const glint = allume ? t * t * (3 - 2 * t) * reglages.issReflet : 0;
+  if (matPanneaux) matPanneaux.emissiveIntensity = Math.min(1.2, glint * 1.2);
+  if (eclat) {
+    eclat.position.set(P[0], P[1], P[2] + 0.02);
+    eclat.scale.setScalar(ECHELLE_ISS * reglages.issTaille * 1.1);
+    eclat.material.opacity = Math.min(1, glint * 0.9);
+  }
 
   lumSoleil.position.set(soleil[0] * 5, soleil[1] * 5, soleil[2] * 5);
   lumSoleil.intensity = allume ? 3.2 : 0;
