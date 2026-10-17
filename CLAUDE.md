@@ -82,6 +82,20 @@ deux, et il ne survit pas à la validation.
   le seul moyen de rafraîchir une app installée, qui n'a ni barre
   d'adresse ni tirer-pour-rafraîchir.
 
+# Page Terre (`terre/`)
+
+Hors de l'app de vol : une page de test, fond d'écran de globe jour/nuit
+avec la position live de l'ISS. Les contraintes de l'app (hors ligne,
+fichiers locaux uniquement, police 16 px, `APP_VERSION`, `preview.html`,
+`sw.js`) ne s'y appliquent pas.
+
+- Réseau et bibliothèques externes permis (API ISS `wheretheiss.at`,
+  éventuellement three.js ou un modèle glTF). Servir en local de
+  préférence quand c'est simple.
+- Versionner via la constante `VERSION` de `terre/terre.js` (affichée
+  en bas du panneau de réglages) ; l'incrémenter pour les gros changements.
+- Travail directement sur `main`, comme le reste du dépôt.
+
 # Stockage
 
 - Tout passe par `store` / `load` / `drop` : localStorage, avec
