@@ -14,9 +14,9 @@
 // ============================================================
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { soleilDansVue, pointDansVue } from "./soleil.js?v=3.1";
+import { soleilDansVue, pointDansVue } from "./soleil.js?v=3.2";
 
-const VERSION = "3.1";
+const VERSION = "3.2";
 
 const DEFAUTS = {
   lat: 43.6, lon: 1.4,          // centre de la vue, degres
@@ -436,24 +436,21 @@ function rendu(forcer) {
 // ------------------------------------------------------------
 const avions = [];
 
-// Trace lisse : un seul trait par tronçon visible, estompe par un degrade
-// lineaire entre le premier et le dernier point (pas de segments juxtaposes,
-// donc ni perles ni raccords). pts : [{x, y, vis}] ; arrets : [[position 0..1, alpha]]
-function traceLisse(pts, rgb, arrets, largeur) {
-  const a = pts[0], b = pts[pts.length - 1];
-  if (Math.hypot(b.x - a.x, b.y - a.y) < 1) return;
-  const g = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
-  for (const [p, al] of arrets) g.addColorStop(p, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${al.toFixed(3)})`);
-  ctx.strokeStyle = g;
+// Trace lisse : petits segments a bouts plats (pas de capuchons qui se
+// superposent, donc ni perles ni surintensites aux raccords), un point
+// toutes les quelques dizaines de secondes, alpha propre a chaque point.
+// pts : [{x, y, vis, a}]
+function traceLisse(pts, rgb, largeur) {
   ctx.lineWidth = largeur;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  let enCours = false;
-  for (const p of pts) {
-    if (!p.vis) { if (enCours) ctx.stroke(); enCours = false; continue; }
-    if (!enCours) { ctx.beginPath(); ctx.moveTo(p.x, p.y); enCours = true; } else ctx.lineTo(p.x, p.y);
+  ctx.lineCap = "butt";
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i - 1], q = pts[i];
+    if (!p.vis || !q.vis) continue;
+    const alpha = (p.a + q.a) / 2;
+    if (alpha < 0.004) continue;
+    ctx.strokeStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha.toFixed(3)})`;
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
   }
-  if (enCours) ctx.stroke();
 }
 
 function nouvelAvion() {
@@ -512,10 +509,9 @@ function dessineAvion(av, t) {
   for (let i = 0; i <= SEGMENTS_TRAINEE; i++) {
     const Q = i === 0 ? P : positionAvion(av, av.theta - av.sens * LONGUEUR_TRAINEE * i / SEGMENTS_TRAINEE);
     const [x, y] = ecran(Q);
-    pts.push({ x, y, vis: !cache(Q) });
+    pts.push({ x, y, vis: !cache(Q), a: (allume ? 0.5 : 0.25) * Math.pow(1 - i / SEGMENTS_TRAINEE, 1.5) });
   }
-  const k = allume ? 1 : 0.5;
-  traceLisse(pts, [225, 235, 255], [[0, 0.5 * k], [0.5, 0.2 * k], [1, 0]], Math.max(1, taille * 0.1));
+  traceLisse(pts, [225, 235, 255], Math.max(1, taille * 0.1));
   if (cache(P)) return;
 
   // cap a l'ecran et raccourci quand l'avion vient vers nous ou s'eloigne
@@ -635,18 +631,18 @@ function dessineIss() {
   const ecran = (Q) => [cx + R * Q[0], cy - R * Q[1]];
 
   if (reglages.issTrace) {
-    // 24 min passees, 30 min a venir, un point toutes les 30 s ; trait continu fin
+    // 24 min passees, 30 min a venir, un point toutes les 30 s ; trait continu fin.
+    // La fenetre de positions connues peut etre plus courte : on trace ce qu'on a.
     const pts = [];
     for (let m = -24 * 2; m <= 30 * 2; m++) {
+      const min = m / 2;
       const Q = issDansVue(ms + m * 30000);
-      if (!Q) { pts.length = 0; continue; }
+      if (!Q) continue;
       const [x, y] = ecran(Q);
-      pts.push({ x, y, vis: !cache(Q) });
+      const a = min <= 0 ? 0.08 + 0.77 * (min + 24) / 24 : 0.85 - 0.77 * min / 30;     // plein a la station
+      pts.push({ x, y, vis: !cache(Q), a });
     }
-    if (pts.length > 1) {
-      const f0 = 24 / 54;                                  // position de l'ISS le long de la trace
-      traceLisse(pts, couleurRvb(reglages.issCouleur), [[0, 0.05], [f0, 0.85], [1, 0.05]], Math.max(1, dpr));
-    }
+    traceLisse(pts, couleurRvb(reglages.issCouleur), Math.max(1, dpr));
   }
   if (cache(P)) return;
 
