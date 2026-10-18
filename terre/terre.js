@@ -27,13 +27,14 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { soleilDansVue, dansVue, vecteurGeo } from "./soleil.js";
 
-const VERSION = "4.1";
+const VERSION = "4.2";
 const RAD = Math.PI / 180;
 
 const DEFAUTS = {
   lat: 43.6, lon: 1.4,          // centre de la vue, degres
   taille: 0.8,                  // diametre du globe / petit cote de l'ecran
   cx: 0.5, cy: 0.5,             // centre du globe, fraction de l'ecran
+  ciel: 1,                      // luminosite du fond de ciel (0 = noir)
   etoiles: 600,                 // nombre d'etoiles (MAX_ETOILES au plus)
   galaxies: 6,                  // galaxies lointaines (MAX_GALAXIES au plus)
   soleilVisible: 1,             // le Soleil, dans le ciel
@@ -131,6 +132,7 @@ uniform float uCrep;        // lignes de crepuscule
 uniform vec3 uBrume;        // teinte de la brume (0..255)
 uniform float uBrumeEp;     // epaisseur de la brume
 uniform float uBrumeLum;    // intensite de la brume (0 = sans)
+uniform float uCiel;        // luminosite du fond de ciel (1 = bleu nuit du firmware)
 uniform vec2 uSun;          // position du Soleil dans le ciel (pixels, y vers le haut)
 uniform float uSunR;        // rayon du disque solaire, en rayons du globe (0 = pas de Soleil)
 uniform sampler2D uJour, uNuitTex, uLut, uEtoiles;
@@ -150,13 +152,11 @@ void main() {
   vec2 p = gl_FragCoord.xy - uC;
   float rho = length(p);
 
-  // ---- fond : lois du firmware assombries, distances en rayons ----
+  // ---- fond : bleu nuit, un peu plus clair vers le bas ; uCiel regle sa luminosite ----
   vec3 col = vec3(1.0, 2.0, 6.0);
-  float th = clamp(1.0 - (rho - uR) / (uR * (230.0 / 96.0)), 0.0, 1.0);
-  col += th * th * vec3(3.0, 8.0, 22.0);
   float vy = 1.0 - gl_FragCoord.y / uRes.y;
   col += vy * vy * vy * vec3(1.0, 2.0, 5.0);
-  col /= 255.0;
+  col = col * uCiel / 255.0;
   col = max(col, texture(uEtoiles, vec2(gl_FragCoord.x / uRes.x, vy)).rgb * lisse(1.0, 1.12, rho / uR));
 
   // ---- Soleil : disque blanc, halo en trois echelles, croix de diffraction ----
@@ -246,7 +246,7 @@ function compile(type, source) {
 }
 
 const UNIFORMES = ["uRes", "uC", "uR", "uP", "uSv", "uOmbre", "uVilles", "uCrep", "uBrume", "uBrumeEp",
-  "uBrumeLum", "uSun", "uSunR", "uJour", "uNuitTex", "uLut", "uEtoiles"];
+  "uBrumeLum", "uCiel", "uSun", "uSunR", "uJour", "uNuitTex", "uLut", "uEtoiles"];
 let programme, uni = {}, texEtoiles;
 
 function initGL() {
@@ -509,6 +509,7 @@ function rendu(forcer) {
   gl.uniform3f(uni.uBrume, brume[0], brume[1], brume[2]);
   gl.uniform1f(uni.uBrumeEp, Math.max(0.05, reglages.brumeEp));
   gl.uniform1f(uni.uBrumeLum, reglages.brume ? reglages.brumeLum : 0);
+  gl.uniform1f(uni.uCiel, reglages.ciel);
   // Soleil : projete a 6 rayons dans sa direction ; s'il est de notre cote du globe
   // (on le verrait devant la Terre), on le repousse au-dela du disque, du cote eclaire
   let dx = soleil[0] * 6, dy = soleil[1] * 6;

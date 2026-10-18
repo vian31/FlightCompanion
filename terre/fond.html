@@ -77,6 +77,7 @@ else window.onerror = function (m) { terreMessage("Erreur : " + m + "<br>" + TER
   <p class="aide">Glisser : tourner &middot; molette / pincement : taille &middot; clic droit ou deux doigts : d&eacute;placer &middot; double clic : recentrer</p>
 
   <h2>Ciel</h2>
+  <label>Luminosit&eacute; du ciel <output></output><input type="range" data-cle="ciel" min="0" max="8" step="0.1"></label>
   <label class="case">Soleil <input type="checkbox" data-cle="soleilVisible"></label>
   <label>Taille du Soleil <output></output><input type="range" data-cle="soleilTaille" min="0.3" max="3" step="0.05"></label>
   <label>Galaxies lointaines <output></output><input type="range" data-cle="galaxies" min="0" max="12" step="1"></label>
