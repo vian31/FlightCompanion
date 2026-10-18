@@ -32,27 +32,25 @@ export function subsolaire(ms) {
   return { lat: decl, lon };
 }
 
-// Direction du soleil dans le repere de vue (x droite, y haut, z vers
-// l'observateur) pour un globe centre sur lat0, lon0 (degres)
-export function soleilDansVue(ms, lat0, lon0) {
-  const sub = subsolaire(ms);
-  const d = sub.lat * DEG, ls = sub.lon * DEG;
-  const s = [Math.cos(d) * Math.cos(ls), Math.cos(d) * Math.sin(ls), Math.sin(d)];
+// Vecteur unitaire terrestre (x vers 0N 0E, y vers 90E, z vers le pole nord) d'un point (lat, lon en degres)
+export function vecteurGeo(lat, lon) {
+  const p = lat * DEG, l = lon * DEG;
+  return [Math.cos(p) * Math.cos(l), Math.cos(p) * Math.sin(l), Math.sin(p)];
+}
+
+// Repere de vue (x droite, y haut, z vers l'observateur) pour un globe centre sur
+// lat0, lon0 (degres) : un vecteur terrestre y est projete par trois produits scalaires
+export function dansVue(v, lat0, lon0) {
   const p0 = lat0 * DEG, l0 = lon0 * DEG;
   const ex = [-Math.sin(l0), Math.cos(l0), 0];
   const ey = [-Math.sin(p0) * Math.cos(l0), -Math.sin(p0) * Math.sin(l0), Math.cos(p0)];
   const ez = [Math.cos(p0) * Math.cos(l0), Math.cos(p0) * Math.sin(l0), Math.sin(p0)];
-  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-  return { sv: [dot(s, ex), dot(s, ey), dot(s, ez)], sub };
+  const dot = (a) => v[0] * a[0] + v[1] * a[1] + v[2] * a[2];
+  return [dot(ex), dot(ey), dot(ez)];
 }
 
-// Vecteur unitaire d'un point (lat, lon en degres) dans le meme repere de vue
-export function pointDansVue(lat, lon, lat0, lon0) {
-  const p = lat * DEG, l = lon * DEG, p0 = lat0 * DEG, l0 = lon0 * DEG;
-  const s = [Math.cos(p) * Math.cos(l), Math.cos(p) * Math.sin(l), Math.sin(p)];
-  const ex = [-Math.sin(l0), Math.cos(l0), 0];
-  const ey = [-Math.sin(p0) * Math.cos(l0), -Math.sin(p0) * Math.sin(l0), Math.cos(p0)];
-  const ez = [Math.cos(p0) * Math.cos(l0), Math.cos(p0) * Math.sin(l0), Math.sin(p0)];
-  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-  return [dot(s, ex), dot(s, ey), dot(s, ez)];
+// Direction du soleil dans le repere de vue, et point subsolaire
+export function soleilDansVue(ms, lat0, lon0) {
+  const sub = subsolaire(ms);
+  return { sv: dansVue(vecteurGeo(sub.lat, sub.lon), lat0, lon0), sub };
 }

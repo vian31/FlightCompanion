@@ -2,8 +2,16 @@
 //  terre.js - Globe jour / nuit en temps reel (fond d'ecran)
 //  Port WebGL2 de l'ecran TERRE de MultiClock (lib/Terre/terre_ecran.cpp,
 //  reference outils/terre_simulateur.py) : meme projection orthographique,
-//  memes constantes d'eclairage, sans les textes. Avions en orbite dessines
-//  sur un calque 2D anime.
+//  memes constantes d'eclairage, sans les textes.
+//
+//  Trois couches superposees :
+//    toile   (WebGL2, shader ci-dessous) : ciel (etoiles, galaxies, Soleil),
+//            globe jour/nuit, brume
+//    iss3d   (three.js) : Lune et ISS en 3D, voile de brume par-dessus ce qui
+//            passe derriere le globe
+//    avions  (2D) : avions, traces, etiquettes ; ce qui est derriere le globe
+//            ou la Lune y est masque a la main
+//  Repere de vue : x droite, y haut, z vers l'observateur, 1 = rayon du globe.
 //
 //  Vue : glisser = faire tourner le globe ; molette / pincement = taille ;
 //  clic droit, Maj+glisser ou deux doigts = deplacer ; double clic = recentrer.
@@ -11,18 +19,25 @@
 //  gardes dans le navigateur (localStorage). Priorite : URL > reglages
 //  gardes > defauts. Parametres d'URL = noms de DEFAUTS ci-dessous, plus
 //    t   instant fige, ISO UTC (2026-10-11T16:50:00Z)
+//
+//  Source modulaire (index.html) ; fond.html / fond.js sont generes par
+//  scripts/build_terre.mjs.
 // ============================================================
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { soleilDansVue, pointDansVue } from "./soleil.js";
+import { soleilDansVue, dansVue, vecteurGeo } from "./soleil.js";
 
-const VERSION = "4.0";
+const VERSION = "4.1";
+const RAD = Math.PI / 180;
 
 const DEFAUTS = {
   lat: 43.6, lon: 1.4,          // centre de la vue, degres
   taille: 0.8,                  // diametre du globe / petit cote de l'ecran
   cx: 0.5, cy: 0.5,             // centre du globe, fraction de l'ecran
   etoiles: 600,                 // nombre d'etoiles (MAX_ETOILES au plus)
+  galaxies: 6,                  // galaxies lointaines (MAX_GALAXIES au plus)
+  soleilVisible: 1,             // le Soleil, dans le ciel
+  soleilTaille: 1,              // 1 = disque de 0,06 rayon du globe
   ombre: 0.5,                   // luminosite de la face cachee (hors villes)
   villes: 0.5,                  // luminosite des lumieres des villes
   crepuscule: 0,                // 1 = lignes -6 / -12 / -18 deg
@@ -40,14 +55,15 @@ const DEFAUTS = {
   issTrace: 1,                  // trace de l'orbite (trait continu, s'estompe aux extremites)
   issCouleur: "#96c8ff",        // couleur de la trace
   issReflet: 1,                 // intensite des reflets sur les panneaux solaires
+  issPrevision: 0,              // heures de trace a venir au-dela de la trace courte (0 = aucune, 12 au plus), etiquettes +4 h, +8 h...
   lune: 1,                      // Lune en orbite autour du globe
   luneTaille: 0.22,             // rayon de la Lune, en rayons du globe (reel : 0,27)
   luneDist: 1.8,                // distance au centre du globe, en rayons du globe (reel : 60)
   luneVit: 0.2,                 // tours par minute (0 = direction et phase reelles, temps reel)
-  issPrevision: 0,              // heures de trace a venir au-dela de la trace courte (0 = aucune, 12 au plus), etiquettes +4 h, +8 h...
+  luneReel: 0,                  // 1 = vraies proportions : rayon 0,27 et distance 60 rayons terrestres
 };
 const CLE_STOCKAGE = "terre.reglages";
-const MAX_ETOILES = 3000;
+const MAX_ETOILES = 3000, MAX_GALAXIES = 12;
 
 // Version autonome (fond.html, voir scripts/build_terre.mjs) : textures et modele
 // ISS integres en data: URI par fond-assets.js, donc rien a charger en reseau
@@ -115,6 +131,8 @@ uniform float uCrep;        // lignes de crepuscule
 uniform vec3 uBrume;        // teinte de la brume (0..255)
 uniform float uBrumeEp;     // epaisseur de la brume
 uniform float uBrumeLum;    // intensite de la brume (0 = sans)
+uniform vec2 uSun;          // position du Soleil dans le ciel (pixels, y vers le haut)
+uniform float uSunR;        // rayon du disque solaire, en rayons du globe (0 = pas de Soleil)
 uniform sampler2D uJour, uNuitTex, uLut, uEtoiles;
 out vec4 sortie;
 
@@ -140,6 +158,16 @@ void main() {
   col += vy * vy * vy * vec3(1.0, 2.0, 5.0);
   col /= 255.0;
   col = max(col, texture(uEtoiles, vec2(gl_FragCoord.x / uRes.x, vy)).rgb * lisse(1.0, 1.12, rho / uR));
+
+  // ---- Soleil : disque blanc, halo en trois echelles, croix de diffraction ----
+  if (uSunR > 0.0) {
+    vec2 ps = gl_FragCoord.xy - uSun;
+    float rs = length(ps) / uR;
+    float halo = 0.9 * exp(-rs / (uSunR * 2.5)) + 0.35 * exp(-rs / (uSunR * 10.0)) + 0.12 * exp(-rs / (uSunR * 40.0));
+    float croix = pow(abs(cos(2.0 * atan(ps.y, ps.x))), 60.0) * exp(-rs / (uSunR * 14.0)) * 0.5;
+    col += vec3(1.0, 0.92, 0.78) * (halo + croix);
+    col = mix(col, vec3(1.0, 0.98, 0.93), smoothstep(uSunR * 1.15, uSunR * 0.85, rs));
+  }
 
   // ---- halo atmospherique hors du disque, cote eclaire : somme de trois
   //      exponentielles (coeur fin + aureoles larges), fondu sans arete ----
@@ -218,7 +246,7 @@ function compile(type, source) {
 }
 
 const UNIFORMES = ["uRes", "uC", "uR", "uP", "uSv", "uOmbre", "uVilles", "uCrep", "uBrume", "uBrumeEp",
-  "uBrumeLum", "uJour", "uNuitTex", "uLut", "uEtoiles"];
+  "uBrumeLum", "uSun", "uSunR", "uJour", "uNuitTex", "uLut", "uEtoiles"];
 let programme, uni = {}, texEtoiles;
 
 function initGL() {
@@ -341,12 +369,54 @@ const ETOILES = (() => {
 })();
 
 const TEINTES = [[1, 1, 1], [0.8, 0.88, 1], [1, 0.92, 0.78]];
+
+// Galaxies lointaines : spirales vues sous des inclinaisons variees (noyau chaud,
+// bras bleutes en spirale logarithmique, nuage de points), fixes comme les etoiles.
+const GALAXIES = (() => {
+  const alea = aleaGraine(11), liste = [];
+  for (let i = 0; i < MAX_GALAXIES; i++) {
+    liste.push({ u: 0.05 + 0.9 * alea(), v: 0.05 + 0.9 * alea(), taille: 0.012 + 0.05 * Math.pow(alea(), 1.6),
+      angle: alea() * Math.PI, incl: alea() * 1.25, bras: alea() < 0.5 ? 2 : 3, graine: Math.floor(alea() * 1e9) });
+  }
+  return liste;
+})();
+
+function dessineGalaxie(g, x, y, rayon, gal, dpr) {
+  const alea = aleaGraine(gal.graine);
+  g.save();
+  g.translate(x, y);
+  g.rotate(gal.angle);
+  g.scale(1, Math.cos(gal.incl) * 0.85 + 0.15);                      // disque vu plus ou moins de profil
+  g.globalCompositeOperation = "lighter";
+  const noyau = g.createRadialGradient(0, 0, 0, 0, 0, rayon * 0.9);
+  noyau.addColorStop(0, "rgba(255, 238, 205, 0.9)");
+  noyau.addColorStop(0.18, "rgba(255, 220, 170, 0.45)");
+  noyau.addColorStop(0.55, "rgba(150, 170, 255, 0.12)");
+  noyau.addColorStop(1, "rgba(120, 150, 255, 0)");
+  g.fillStyle = noyau;
+  g.beginPath(); g.arc(0, 0, rayon * 0.9, 0, 2 * Math.PI); g.fill();
+  const n = Math.round(rayon * 7);
+  for (let i = 0; i < n; i++) {
+    const r = rayon * Math.pow(alea(), 0.75);
+    const th = (r / rayon) * 3.4 + (i % gal.bras) * 2 * Math.PI / gal.bras + (alea() + alea() + alea() - 1.5) * 0.45;
+    const t = r / rayon;
+    g.fillStyle = `rgba(${Math.round(255 - 125 * t)}, ${Math.round(225 - 55 * t)}, 255, ${(0.1 + 0.3 * alea() * (1 - 0.5 * t)).toFixed(3)})`;
+    g.fillRect(r * Math.cos(th), r * Math.sin(th), dpr * 0.9, dpr * 0.9);
+  }
+  g.restore();
+}
+
 function dessineEtoiles(l, h, dpr) {
   const c = document.createElement("canvas");
   c.width = l; c.height = h;
   const g = c.getContext("2d");
   g.fillStyle = "#000";
   g.fillRect(0, 0, l, h);
+  const ng = Math.min(MAX_GALAXIES, Math.max(0, Math.round(reglages.galaxies)));
+  for (let i = 0; i < ng; i++) {
+    const gal = GALAXIES[i];
+    dessineGalaxie(g, gal.u * l, gal.v * h, gal.taille * Math.min(l, h), gal, dpr);
+  }
   const n = Math.min(MAX_ETOILES, Math.max(0, Math.round(reglages.etoiles)));
   for (let i = 0; i < n; i++) {
     const [u, v, b, te] = ETOILES[i];
@@ -409,7 +479,7 @@ function rendu(forcer) {
   if (!pret) return;
   const ms = Number.isFinite(INSTANT_FIGE) ? INSTANT_FIGE : Date.now();
   const { dpr, l, h } = geometrie();
-  const cle = [l, h, dpr, reglages.etoiles].join("|");
+  const cle = [l, h, dpr, reglages.etoiles, reglages.galaxies].join("|");
   const creneau = Math.floor(ms / 30000);               // soleil : 0,125 deg par 30 s
   if (!forcer && cle === derniereCle && creneau === dernierCreneau) return;
   enAttente = false;
@@ -431,7 +501,7 @@ function rendu(forcer) {
   gl.uniform2f(uni.uRes, l, h);
   gl.uniform2f(uni.uC, cx, h - cy);
   gl.uniform1f(uni.uR, R);
-  gl.uniform2f(uni.uP, reglages.lat * Math.PI / 180, reglages.lon * Math.PI / 180);
+  gl.uniform2f(uni.uP, reglages.lat * RAD, reglages.lon * RAD);
   gl.uniform3f(uni.uSv, soleil[0], soleil[1], soleil[2]);
   gl.uniform1f(uni.uOmbre, reglages.ombre);
   gl.uniform1f(uni.uVilles, reglages.villes);
@@ -439,6 +509,16 @@ function rendu(forcer) {
   gl.uniform3f(uni.uBrume, brume[0], brume[1], brume[2]);
   gl.uniform1f(uni.uBrumeEp, Math.max(0.05, reglages.brumeEp));
   gl.uniform1f(uni.uBrumeLum, reglages.brume ? reglages.brumeLum : 0);
+  // Soleil : projete a 6 rayons dans sa direction ; s'il est de notre cote du globe
+  // (on le verrait devant la Terre), on le repousse au-dela du disque, du cote eclaire
+  let dx = soleil[0] * 6, dy = soleil[1] * 6;
+  const longueur = Math.hypot(dx, dy);
+  if (soleil[2] > 0 && longueur < 1.7) {
+    const [ux, uy] = longueur < 1e-3 ? [-0.6, 0.8] : [dx / longueur, dy / longueur];
+    dx = ux * 1.7; dy = uy * 1.7;
+  }
+  gl.uniform2f(uni.uSun, cx + R * dx, h - cy + R * dy);
+  gl.uniform1f(uni.uSunR, reglages.soleilVisible ? 0.06 * reglages.soleilTaille : 0);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   document.title = "Terre - " + new Date(ms).toISOString().slice(0, 16) + "Z";
   window.terrePrete = true;
@@ -524,10 +604,10 @@ function dessineAvion(av, t) {
   for (let i = 0; i <= SEGMENTS_TRAINEE; i++) {
     const Q = i === 0 ? P : positionAvion(av, av.theta - av.sens * LONGUEUR_TRAINEE * i / SEGMENTS_TRAINEE);
     const [x, y] = ecran(Q);
-    pts.push({ x, y, vis: !cache(Q), a: (allume ? 0.5 : 0.25) * Math.pow(1 - i / SEGMENTS_TRAINEE, 1.5) });
+    pts.push({ x, y, vis: !cache(Q) && !derriereLune(Q), a: (allume ? 0.5 : 0.25) * Math.pow(1 - i / SEGMENTS_TRAINEE, 1.5) });
   }
   traceLisse(pts, [225, 235, 255], Math.max(1, taille * 0.1));
-  if (cache(P)) return;
+  if (cache(P) || derriereLune(P)) return;
 
   // cap a l'ecran et raccourci quand l'avion vient vers nous ou s'eloigne
   const V = [av.sens * (-av.a[0] * Math.sin(av.theta) + av.b[0] * Math.cos(av.theta)),
@@ -597,7 +677,7 @@ try {
 //  tendance, pas une ephemeride.
 // ------------------------------------------------------------
 const NOEUD_ISS = -1.005e-6;              // rad/s, regression du noeud ascendant
-const gmst = (ms) => (((280.46061837 + 360.98564736629 * (ms / 86400000 - 10957.5)) % 360) + 360) % 360 * Math.PI / 180;
+const gmst = (ms) => (((280.46061837 + 360.98564736629 * (ms / 86400000 - 10957.5)) % 360) + 360) % 360 * RAD;
 function rotZ(v, a) {
   const c = Math.cos(a), s = Math.sin(a);
   return [v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]];
@@ -669,10 +749,6 @@ function verifieIss(maintenant) {
   chargeIss().then(() => { issProchainEssai = maintenant + 5 * 60000; }).catch(() => {});
 }
 
-const vecteurGeo = (lat, lon) => {
-  const p = lat * Math.PI / 180, l = lon * Math.PI / 180;
-  return [Math.cos(p) * Math.cos(l), Math.cos(p) * Math.sin(l), Math.sin(p)];
-};
 
 // Position de l'ISS a l'instant ms dans le repere de vue (rayons du globe),
 // ou null si l'instant sort de la fenetre connue
@@ -688,10 +764,8 @@ function issDansVue(ms) {
   const ka = so < 1e-6 ? 1 - f : Math.sin((1 - f) * om) / so;
   const kb = so < 1e-6 ? f : Math.sin(f * om) / so;
   const w = [ka * u[0] + kb * v[0], ka * u[1] + kb * v[1], ka * u[2] + kb * v[2]];
-  const lat = Math.asin(Math.max(-1, Math.min(1, w[2]))) * 180 / Math.PI;
-  const lon = Math.atan2(w[1], w[0]) * 180 / Math.PI;
   const d = 1 + (A.alt + (B.alt - A.alt) * f) / RAYON_TERRE_KM;
-  const P = pointDansVue(lat, lon, reglages.lat, reglages.lon);
+  const P = dansVue(w, reglages.lat, reglages.lon);
   return [P[0] * d, P[1] * d, P[2] * d];
 }
 
@@ -704,13 +778,7 @@ function dessinePrevision(ms) {
     for (let i = 0; i < n; i++) xyz.set(positionModele(m, ms + i * PAS_PREVISION), i * 3);
     previsionPts = { modele: m, debut: ms, n, xyz };
   }
-  // repere de vue : projection d'un vecteur terrestre, comme pointDansVue
-  const p0 = reglages.lat * Math.PI / 180, l0 = reglages.lon * Math.PI / 180;
-  const ex = [-Math.sin(l0), Math.cos(l0), 0];
-  const ey = [-Math.sin(p0) * Math.cos(l0), -Math.sin(p0) * Math.sin(l0), Math.cos(p0)];
-  const ez = [Math.cos(p0) * Math.cos(l0), Math.cos(p0) * Math.sin(l0), Math.sin(p0)];
-  const proj = (x, y, z) => [(x * ex[0] + y * ex[1] + z * ex[2]) * m.d, (x * ey[0] + y * ey[1] + z * ey[2]) * m.d,
-                              (x * ez[0] + y * ez[1] + z * ez[2]) * m.d];
+  const proj = (x, y, z) => dansVue([x, y, z], reglages.lat, reglages.lon).map((c) => c * m.d);
   const ecran = (Q) => [cx + R * Q[0], cy - R * Q[1]];
 
   const rgb = couleurRvb(reglages.issCouleur);
@@ -723,7 +791,7 @@ function dessinePrevision(ms) {
     const t = previsionPts.debut + i * PAS_PREVISION;
     if (t > fin) break;
     const Q = proj(previsionPts.xyz[i * 3], previsionPts.xyz[i * 3 + 1], previsionPts.xyz[i * 3 + 2]);
-    if (!cache(prec) && !cache(Q)) {
+    if (!cache(prec) && !cache(Q) && !derriereLune(Q)) {
       const tr = Math.min(NB_TRANCHES - 1, Math.floor((t - debut) / (fin - debut) * NB_TRANCHES));
       tranches[tr].push(ecran(prec), ecran(Q));
     }
@@ -748,7 +816,7 @@ function dessinePrevision(ms) {
     const t = ms + k * 4 * 3600000;
     if (t < debut || t > fin) continue;
     const Q = proj(...positionModele(m, t));
-    if (cache(Q)) continue;
+    if (cache(Q) || derriereLune(Q)) continue;
     const [x, y] = ecran(Q);
     ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
     ctx.beginPath(); ctx.arc(x, y, 3 * dpr, 0, 2 * Math.PI); ctx.fill();
@@ -773,12 +841,12 @@ function dessineIss(P) {
       if (!Q) continue;
       const [x, y] = ecran(Q);
       const a = min <= 0 ? 0.08 + 0.77 * (min + 24) / 24 : 0.85 - 0.77 * min / 30;     // plein a la station
-      pts.push({ x, y, vis: !cache(Q), a });
+      pts.push({ x, y, vis: !cache(Q) && !derriereLune(Q), a });
     }
     traceLisse(pts, couleurRvb(reglages.issCouleur), Math.max(1, dpr));
   }
   if (reglages.issPrevision > 0 && modeleOrbite) dessinePrevision(ms);
-  if (cache(P)) return;
+  if (cache(P) || derriereLune(P)) return;
 
   if (reglages.issLabel) {
     const longueur = ECHELLE_ISS * reglages.issTaille * R;      // envergure de la ferme a l'ecran
@@ -807,7 +875,7 @@ function dessineIss(P) {
 const ECHELLE_ISS = 0.18;             // envergure de la ferme / rayon du globe, pour issTaille = 1
 const canvas3d = document.getElementById("iss3d");
 let rendu3d = null, scene3d, camera3d, groupeIss = null, ailesIss, lumSoleil, lumTerre, matPanneaux, eclat;
-let sceneLune, lune = null, lumLune, lumTerreLune, ambLune;
+let sceneLune, lune = null, lumLune, lumTerreLune, ambLune, sceneVoile, matVoile;
 
 function init3d() {
   rendu3d = new THREE.WebGLRenderer({ canvas: canvas3d, alpha: true, antialias: true });
@@ -815,8 +883,8 @@ function init3d() {
   rendu3d.setClearColor(0x000000, 0);
   rendu3d.autoClear = false;                                        // deux scenes (Lune puis ISS) sur le meme tampon de profondeur
   scene3d = new THREE.Scene();
-  camera3d = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 30);
-  camera3d.position.set(0, 0, 10);
+  camera3d = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 400);
+  camera3d.position.set(0, 0, 150);                                  // la Lune a l'echelle reelle est a 60 rayons
   const occulteur = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 48), new THREE.MeshBasicMaterial({ colorWrite: false }));
   occulteur.renderOrder = -1;
   scene3d.add(occulteur);
@@ -825,6 +893,7 @@ function init3d() {
   lumTerre = new THREE.DirectionalLight(0x8fb4ff, 0);               // lumiere renvoyee par la Terre
   scene3d.add(lumSoleil, lumTerre);
   initLune();
+  initVoile();
   (ASSETS.iss ? new Promise((ok, ko) => new GLTFLoader().parse(binaire(ASSETS.iss), "", ok, ko))
     : new GLTFLoader().loadAsync("models/iss.glb")).then((gltf) => {
     groupeIss = new THREE.Group();
@@ -911,7 +980,9 @@ function majIss3d(P, Q, allume) {
 //  eclipsee quand elle passe dans l'ombre du globe.
 // ------------------------------------------------------------
 let luneExtra = 0;
-const RAD = Math.PI / 180;
+const LUNE_REELLE = { rayon: 1737.4 / RAYON_TERRE_KM, distance: 384400 / RAYON_TERRE_KM };   // en rayons terrestres
+let lunePos = null;                                  // {x, y, z, r} de la Lune a l'ecran (unites : rayon du globe)
+let tailleAvantReel = 0;
 const OBLIQUITE = 23.439291 * RAD;
 const POLE_ECLIPTIQUE = [0, -Math.sin(OBLIQUITE), Math.cos(OBLIQUITE)];       // repere inertiel
 
@@ -935,19 +1006,34 @@ function tourneAutour(v, k, a) {                    // Rodrigues
   return [v[0] * c + kxv[0] * s + k[0] * kv * (1 - c), v[1] * c + kxv[1] * s + k[1] * kv * (1 - c),
           v[2] * c + kxv[2] * s + k[2] * kv * (1 - c)];
 }
-function versVue(v) {                               // vecteur terrestre -> repere de vue
-  const p0 = reglages.lat * RAD, l0 = reglages.lon * RAD;
-  const ex = [-Math.sin(l0), Math.cos(l0), 0];
-  const ey = [-Math.sin(p0) * Math.cos(l0), -Math.sin(p0) * Math.sin(l0), Math.cos(p0)];
-  const ez = [Math.cos(p0) * Math.cos(l0), Math.cos(p0) * Math.sin(l0), Math.sin(p0)];
-  const d = (a) => v[0] * a[0] + v[1] * a[1] + v[2] * a[2];
-  return [d(ex), d(ey), d(ez)];
-}
 // direction de la Lune et pole de l'ecliptique dans le repere de vue
 function luneDansVue(ms) {
   const eci = tourneAutour(luneEci(ms), POLE_ECLIPTIQUE, luneExtra);
   const th = gmst(ms);
-  return { m: versVue(rotZ(eci, -th)), pole: versVue(rotZ(POLE_ECLIPTIQUE, -th)) };
+  return { m: dansVue(rotZ(eci, -th), reglages.lat, reglages.lon), pole: dansVue(rotZ(POLE_ECLIPTIQUE, -th), reglages.lat, reglages.lon) };
+}
+
+// Voile atmospherique : la meme lueur que le halo du globe (shader de fond),
+// ajoutee par-dessus les objets 3D qui passent DERRIERE la Terre (Lune, ISS) ;
+// un plan a z = 0 ne passe le test de profondeur que devant eux, et le facteur
+// d'alpha de destination l'empeche de s'ajouter au fond deja eclaire.
+function initVoile() {
+  matVoile = new THREE.ShaderMaterial({
+    uniforms: { uSv: { value: new THREE.Vector2() }, uBrume: { value: new THREE.Vector3() },
+                uEp: { value: 1 }, uLum: { value: 1 } },
+    vertexShader: "varying vec2 vXY; void main() { vXY = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+    fragmentShader: `varying vec2 vXY; uniform vec2 uSv; uniform vec3 uBrume; uniform float uEp, uLum;
+      void main() {
+        float rho = length(vXY), h = max(rho - 1.0, 0.0);
+        float halo = 0.50 * exp(-h / (0.016 * uEp)) + 0.30 * exp(-h / (0.05 * uEp)) + 0.14 * exp(-h / (0.16 * uEp));
+        float cote = smoothstep(-0.35, 0.7, dot(vXY / max(rho, 1e-4), uSv));
+        gl_FragColor = vec4(uBrume * halo * cote * 0.85 * uLum, 1.0);
+      }`,
+    transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
+    blendSrc: THREE.DstAlphaFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
+  });
+  sceneVoile = new THREE.Scene();
+  sceneVoile.add(new THREE.Mesh(new THREE.PlaneGeometry(400, 400), matVoile));
 }
 
 function initLune() {
@@ -973,9 +1059,10 @@ function initLune() {
 
 function majLune(ms) {
   const { m, pole } = luneDansVue(ms);
-  const d = reglages.luneDist, r = reglages.luneTaille;
+  const reel = reglages.luneReel, d = reel ? LUNE_REELLE.distance : reglages.luneDist, r = reel ? LUNE_REELLE.rayon : reglages.luneTaille;
   lune.position.set(m[0] * d, m[1] * d, m[2] * d);
   lune.scale.setScalar(r);
+  lunePos = { x: m[0] * d, y: m[1] * d, z: m[2] * d, r };
   // face cachee tournee vers l'avant : l'axe x de la texture (longitude 0) pointe vers la Terre,
   // le nord lunaire vers le pole de l'ecliptique
   const X = [-m[0], -m[1], -m[2]];
@@ -985,12 +1072,14 @@ function majLune(ms) {
   lune.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(
     new THREE.Vector3(...X), new THREE.Vector3(...Y), new THREE.Vector3(...Z)));
 
-  // eclipse : le centre passe-t-il dans le cylindre d'ombre du globe (rayon 1) ?
+  // eclipse : le centre passe-t-il dans le cone d'ombre du globe ? (le Soleil a un
+  // rayon apparent de 0,00465 rad : l'ombre se resserre avec la distance)
   const ps = m[0] * soleil[0] + m[1] * soleil[1] + m[2] * soleil[2];
   let eclairement = 1;
   if (ps < 0) {
     const perp = d * Math.sqrt(Math.max(0, 1 - ps * ps));
-    const t = Math.max(0, Math.min(1, (perp - (1 - r)) / (2 * r)));          // penombre sur un diametre lunaire
+    const ombre = Math.max(0.1, 1 - d * 0.00465);
+    const t = Math.max(0, Math.min(1, (perp - (ombre - r)) / (2 * r)));          // penombre sur un diametre lunaire
     eclairement = t * t * (3 - 2 * t);
   }
   lumLune.position.set(soleil[0] * 5, soleil[1] * 5, soleil[2] * 5);
@@ -1011,8 +1100,23 @@ function dessine3d(P, Q, allume, ms) {
   camera3d.top = cy / R; camera3d.bottom = -(h - cy) / R;
   camera3d.updateProjectionMatrix();
   rendu3d.clear();
+  lunePos = null;
   if (reglages.lune && lune) { majLune(ms); rendu3d.render(sceneLune, camera3d); }
   if (reglages.iss && P && groupeIss) { majIss3d(P, Q, allume); rendu3d.render(scene3d, camera3d); }
+  const b = couleurRvb(reglages.brumeTeinte);
+  matVoile.uniforms.uSv.value.set(soleil[0], soleil[1]);
+  matVoile.uniforms.uBrume.value.set(b[0] / 255, b[1] / 255, b[2] / 255);
+  matVoile.uniforms.uEp.value = Math.max(0.05, reglages.brumeEp);
+  matVoile.uniforms.uLum.value = reglages.brume ? reglages.brumeLum : 0;
+  rendu3d.render(sceneVoile, camera3d);
+}
+
+// Le calque 2D (avions, traces) est au-dessus du canvas 3D : on y masque a la main
+// ce qui est derriere la Lune. Q : vecteur de la vue, en rayons du globe.
+function derriereLune(Q) {
+  if (!lunePos) return false;
+  const dx = Q[0] - lunePos.x, dy = Q[1] - lunePos.y, d2 = dx * dx + dy * dy;
+  return d2 < lunePos.r * lunePos.r && Q[2] < lunePos.z + Math.sqrt(lunePos.r * lunePos.r - d2);
 }
 
 // ------------------------------------------------------------
@@ -1093,6 +1197,7 @@ function applique(cle) {
   }
   if (cle.startsWith("lune")) {
     if (cle === "lune") lanceAnimation();
+    if (cle === "luneReel") ajusteVuePourLune();
     return;
   }
   rendu(true);
@@ -1143,7 +1248,7 @@ engrenage.addEventListener("click", () => panneau.classList.toggle("ouvert"));
 //  Maj+glisser ou deux doigts = deplacer ; double clic / double tape =
 //  taille et position par defaut.
 // ------------------------------------------------------------
-const TAILLE_MIN = 0.15, TAILLE_MAX = 4, CENTRE_MIN = -1, CENTRE_MAX = 2;
+const TAILLE_MIN = 0.005, TAILLE_MAX = 4, CENTRE_MIN = -1, CENTRE_MAX = 2;
 const bornes = (x, a, b) => Math.max(a, Math.min(b, x));
 const pointeurs = new Map();                       // id -> {x, y, mode, x0, y0, t0}
 let minuterieSauvegarde = 0, dernierTape = null;
@@ -1159,11 +1264,24 @@ function metAJourVue() {
   minuterieSauvegarde = setTimeout(sauve, 400);
 }
 
+// Proportions reelles : l'orbite lunaire (60 rayons) doit tenir a l'ecran, donc on
+// reduit le globe ; on retrouve la taille d'avant en decochant.
+function ajusteVuePourLune() {
+  if (reglages.luneReel) {
+    if (reglages.taille > 0.05) tailleAvantReel = reglages.taille;
+    reglages.taille = 0.92 / LUNE_REELLE.distance;
+    reglages.cx = reglages.cy = 0.5;
+  } else if (tailleAvantReel) {
+    reglages.taille = tailleAvantReel;
+  }
+  metAJourVue();
+}
+
 const rayonCss = () => reglages.taille * Math.min(toile.clientWidth, toile.clientHeight) / 2;
 
 function tourne(dx, dy) {
   const R = rayonCss();
-  const coslat = Math.max(Math.cos(reglages.lat * Math.PI / 180), 0.3);     // pres des poles, 1 px ne vaut plus 1 px de longitude
+  const coslat = Math.max(Math.cos(reglages.lat * RAD), 0.3);     // pres des poles, 1 px ne vaut plus 1 px de longitude
   reglages.lat += dy / R * 180 / Math.PI;
   reglages.lon -= dx / (R * coslat) * 180 / Math.PI;
   metAJourVue();
