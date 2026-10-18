@@ -16,7 +16,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { soleilDansVue, pointDansVue } from "./soleil.js";
 
-const VERSION = "3.7";
+const VERSION = "4.0";
 
 const DEFAUTS = {
   lat: 43.6, lon: 1.4,          // centre de la vue, degres
@@ -40,6 +40,10 @@ const DEFAUTS = {
   issTrace: 1,                  // trace de l'orbite (trait continu, s'estompe aux extremites)
   issCouleur: "#96c8ff",        // couleur de la trace
   issReflet: 1,                 // intensite des reflets sur les panneaux solaires
+  lune: 1,                      // Lune en orbite autour du globe
+  luneTaille: 0.22,             // rayon de la Lune, en rayons du globe (reel : 0,27)
+  luneDist: 1.8,                // distance au centre du globe, en rayons du globe (reel : 60)
+  luneVit: 0.2,                 // tours par minute (0 = direction et phase reelles, temps reel)
   issPrevision: 0,              // heures de trace a venir au-dela de la trace courte (0 = aucune, 12 au plus), etiquettes +4 h, +8 h...
 };
 const CLE_STOCKAGE = "terre.reglages";
@@ -753,10 +757,8 @@ function dessinePrevision(ms) {
   ctx.shadowBlur = 0;
 }
 
-function dessineIss() {
+function dessineIss(P) {
   const ms = instant();
-  const P = issDansVue(ms);
-  dessineIss3d(P, P && (issDansVue(ms + 20000) || P), P && eclaire(P));
   if (!P) return;
   const { cx, cy, R, dpr } = vue;
   const ecran = (Q) => [cx + R * Q[0], cy - R * Q[1]];
@@ -805,11 +807,13 @@ function dessineIss() {
 const ECHELLE_ISS = 0.18;             // envergure de la ferme / rayon du globe, pour issTaille = 1
 const canvas3d = document.getElementById("iss3d");
 let rendu3d = null, scene3d, camera3d, groupeIss = null, ailesIss, lumSoleil, lumTerre, matPanneaux, eclat;
+let sceneLune, lune = null, lumLune, lumTerreLune, ambLune;
 
-function initIss3d() {
+function init3d() {
   rendu3d = new THREE.WebGLRenderer({ canvas: canvas3d, alpha: true, antialias: true });
   rendu3d.setPixelRatio(1);                                         // la taille du tampon suit deja le dpr
   rendu3d.setClearColor(0x000000, 0);
+  rendu3d.autoClear = false;                                        // deux scenes (Lune puis ISS) sur le meme tampon de profondeur
   scene3d = new THREE.Scene();
   camera3d = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 30);
   camera3d.position.set(0, 0, 10);
@@ -820,6 +824,7 @@ function initIss3d() {
   lumSoleil = new THREE.DirectionalLight(0xfff4e0, 3.2);
   lumTerre = new THREE.DirectionalLight(0x8fb4ff, 0);               // lumiere renvoyee par la Terre
   scene3d.add(lumSoleil, lumTerre);
+  initLune();
   (ASSETS.iss ? new Promise((ok, ko) => new GLTFLoader().parse(binaire(ASSETS.iss), "", ok, ko))
     : new GLTFLoader().loadAsync("models/iss.glb")).then((gltf) => {
     groupeIss = new THREE.Group();
@@ -850,16 +855,7 @@ function initIss3d() {
   }).catch((e) => console.warn("modele ISS : " + e.message));
 }
 
-function dessineIss3d(P, Q, allume) {
-  if (!rendu3d) initIss3d();
-  const { l, h, cx, cy, R } = vue;
-  if (canvas3d.width !== l || canvas3d.height !== h) rendu3d.setSize(l, h, false);
-  if (!P || !groupeIss) { rendu3d.clear(); return; }
-
-  camera3d.left = -cx / R; camera3d.right = (l - cx) / R;
-  camera3d.top = cy / R; camera3d.bottom = -(h - cy) / R;
-  camera3d.updateProjectionMatrix();
-
+function majIss3d(P, Q, allume) {
   // repere orbital dans la vue : Z vers la Terre, X vers l'avant, Y = Z ^ X (normale a l'orbite)
   const nP = Math.hypot(P[0], P[1], P[2]);
   const Z = [-P[0] / nP, -P[1] / nP, -P[2] / nP];
@@ -902,7 +898,121 @@ function dessineIss3d(P, Q, allume) {
   const jourSous = Math.max(0, Math.min(1, ((P[0] * soleil[0] + P[1] * soleil[1] + P[2] * soleil[2]) / nP + 0.2) / 0.8));
   lumTerre.position.set(-Z[0] * -5, -Z[1] * -5, -Z[2] * -5);
   lumTerre.intensity = 0.9 * jourSous;
-  rendu3d.render(scene3d, camera3d);
+}
+
+// ------------------------------------------------------------
+//  Lune : position reelle (serie abregee de Meeus ch. 47, ~0,3 deg) ou
+//  accelere : la direction reelle est tournee autour du pole de l'ecliptique
+//  de luneExtra radians, qui croit de luneVit tours par minute - les phases
+//  defilent alors comme dans le mois reel, en accelere. La Lune est placee a
+//  luneDist rayons du globe (pas a l'echelle) et garde la meme face vers la
+//  Terre (rotation synchrone). Texture : mosaique couleur LRO/LROC, relief
+//  LOLA (NASA SVS, CGI Moon Kit). Eclairee par le meme Soleil que la Terre,
+//  eclipsee quand elle passe dans l'ombre du globe.
+// ------------------------------------------------------------
+let luneExtra = 0;
+const RAD = Math.PI / 180;
+const OBLIQUITE = 23.439291 * RAD;
+const POLE_ECLIPTIQUE = [0, -Math.sin(OBLIQUITE), Math.cos(OBLIQUITE)];       // repere inertiel
+
+function luneEci(ms) {
+  const T = (ms / 86400000 - 10957.5) / 36525;
+  const Lp = 218.3164477 + 481267.88123421 * T, D = 297.8501921 + 445267.1114034 * T;
+  const M = 357.5291092 + 35999.0502909 * T, Mp = 134.9633964 + 477198.8675055 * T;
+  const F = 93.2720950 + 483202.0175233 * T;
+  const s = (x) => Math.sin(x * RAD);
+  const lon = (Lp + 6.288774 * s(Mp) + 1.274027 * s(2 * D - Mp) + 0.658314 * s(2 * D) + 0.213618 * s(2 * Mp)
+    - 0.185116 * s(M) - 0.114332 * s(2 * F) + 0.058793 * s(2 * D - 2 * Mp) + 0.057066 * s(2 * D - M - Mp)
+    + 0.053322 * s(2 * D + Mp) + 0.045758 * s(2 * D - M) - 0.040923 * s(M - Mp) - 0.034720 * s(D)
+    - 0.030383 * s(M + Mp)) * RAD;
+  const lat = (5.128122 * s(F) + 0.280602 * s(Mp + F) + 0.277693 * s(Mp - F) + 0.173237 * s(2 * D - F)
+    + 0.055413 * s(2 * D - Mp + F) + 0.046271 * s(2 * D - Mp - F) + 0.032573 * s(2 * D + F)) * RAD;
+  const cb = Math.cos(lat), sb = Math.sin(lat), cl = Math.cos(lon), sl = Math.sin(lon);
+  return [cb * cl, cb * sl * Math.cos(OBLIQUITE) - sb * Math.sin(OBLIQUITE), cb * sl * Math.sin(OBLIQUITE) + sb * Math.cos(OBLIQUITE)];
+}
+function tourneAutour(v, k, a) {                    // Rodrigues
+  const c = Math.cos(a), s = Math.sin(a), kv = k[0] * v[0] + k[1] * v[1] + k[2] * v[2], kxv = vectoriel(k, v);
+  return [v[0] * c + kxv[0] * s + k[0] * kv * (1 - c), v[1] * c + kxv[1] * s + k[1] * kv * (1 - c),
+          v[2] * c + kxv[2] * s + k[2] * kv * (1 - c)];
+}
+function versVue(v) {                               // vecteur terrestre -> repere de vue
+  const p0 = reglages.lat * RAD, l0 = reglages.lon * RAD;
+  const ex = [-Math.sin(l0), Math.cos(l0), 0];
+  const ey = [-Math.sin(p0) * Math.cos(l0), -Math.sin(p0) * Math.sin(l0), Math.cos(p0)];
+  const ez = [Math.cos(p0) * Math.cos(l0), Math.cos(p0) * Math.sin(l0), Math.sin(p0)];
+  const d = (a) => v[0] * a[0] + v[1] * a[1] + v[2] * a[2];
+  return [d(ex), d(ey), d(ez)];
+}
+// direction de la Lune et pole de l'ecliptique dans le repere de vue
+function luneDansVue(ms) {
+  const eci = tourneAutour(luneEci(ms), POLE_ECLIPTIQUE, luneExtra);
+  const th = gmst(ms);
+  return { m: versVue(rotZ(eci, -th)), pole: versVue(rotZ(POLE_ECLIPTIQUE, -th)) };
+}
+
+function initLune() {
+  sceneLune = new THREE.Scene();
+  const occulteur = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 48), new THREE.MeshBasicMaterial({ colorWrite: false }));
+  occulteur.renderOrder = -1;
+  sceneLune.add(occulteur);
+  ambLune = new THREE.AmbientLight(0x6a7aa0, 0.05);
+  lumLune = new THREE.DirectionalLight(0xfff6e8, 2.6);
+  lumTerreLune = new THREE.DirectionalLight(0x6f9cff, 0);           // lumiere de la Terre sur la face cachee
+  sceneLune.add(ambLune, lumLune, lumTerreLune);
+  Promise.all([chargeImage(ASSETS.lune || "textures/lune.jpg"), chargeImage(ASSETS.luneRelief || "textures/lune_relief.jpg")])
+    .then(([im, rel]) => {
+      const tex = new THREE.Texture(im), bump = new THREE.Texture(rel);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = Math.min(8, rendu3d.capabilities.getMaxAnisotropy());
+      tex.needsUpdate = bump.needsUpdate = true;
+      lune = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 64),
+        new THREE.MeshStandardMaterial({ map: tex, bumpMap: bump, bumpScale: 2.5, roughness: 1, metalness: 0 }));
+      sceneLune.add(lune);
+    }).catch((e) => console.warn("Lune : " + e.message));
+}
+
+function majLune(ms) {
+  const { m, pole } = luneDansVue(ms);
+  const d = reglages.luneDist, r = reglages.luneTaille;
+  lune.position.set(m[0] * d, m[1] * d, m[2] * d);
+  lune.scale.setScalar(r);
+  // face cachee tournee vers l'avant : l'axe x de la texture (longitude 0) pointe vers la Terre,
+  // le nord lunaire vers le pole de l'ecliptique
+  const X = [-m[0], -m[1], -m[2]];
+  const k = pole[0] * X[0] + pole[1] * X[1] + pole[2] * X[2];
+  const Y = normalise([pole[0] - k * X[0], pole[1] - k * X[1], pole[2] - k * X[2]]);
+  const Z = vectoriel(X, Y);
+  lune.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+    new THREE.Vector3(...X), new THREE.Vector3(...Y), new THREE.Vector3(...Z)));
+
+  // eclipse : le centre passe-t-il dans le cylindre d'ombre du globe (rayon 1) ?
+  const ps = m[0] * soleil[0] + m[1] * soleil[1] + m[2] * soleil[2];
+  let eclairement = 1;
+  if (ps < 0) {
+    const perp = d * Math.sqrt(Math.max(0, 1 - ps * ps));
+    const t = Math.max(0, Math.min(1, (perp - (1 - r)) / (2 * r)));          // penombre sur un diametre lunaire
+    eclairement = t * t * (3 - 2 * t);
+  }
+  lumLune.position.set(soleil[0] * 5, soleil[1] * 5, soleil[2] * 5);
+  lumLune.intensity = 2.6 * eclairement;
+  ambLune.color.setRGB(0.42 + 0.58 * eclairement, 0.48 + 0.2 * eclairement, 0.63);  // cuivre dans l'ombre
+  ambLune.intensity = 0.05 + 0.3 * (1 - eclairement);
+  // la Terre eclaire la face cachee : pleine vue de la Lune quand la Lune est vers le Soleil (nouvelle lune)
+  lumTerreLune.position.set(-m[0] * 5, -m[1] * 5, -m[2] * 5);
+  lumTerreLune.intensity = 0.22 * (1 + ps) / 2 * eclairement;
+}
+
+// Une image 3D : Lune puis ISS sur le meme tampon de profondeur
+function dessine3d(P, Q, allume, ms) {
+  if (!rendu3d) init3d();
+  const { l, h, cx, cy, R } = vue;
+  if (canvas3d.width !== l || canvas3d.height !== h) rendu3d.setSize(l, h, false);
+  camera3d.left = -cx / R; camera3d.right = (l - cx) / R;
+  camera3d.top = cy / R; camera3d.bottom = -(h - cy) / R;
+  camera3d.updateProjectionMatrix();
+  rendu3d.clear();
+  if (reglages.lune && lune) { majLune(ms); rendu3d.render(sceneLune, camera3d); }
+  if (reglages.iss && P && groupeIss) { majIss3d(P, Q, allume); rendu3d.render(scene3d, camera3d); }
 }
 
 // ------------------------------------------------------------
@@ -910,7 +1020,7 @@ function dessineIss3d(P, Q, allume) {
 // ------------------------------------------------------------
 let dernierT = 0, boucleActive = false;
 function anime(t) {
-  if (!avions.length && !reglages.iss) {
+  if (!avions.length && !reglages.iss && !reglages.lune) {
     ctx.clearRect(0, 0, calque.width, calque.height);
     if (rendu3d) rendu3d.clear();
     boucleActive = false;
@@ -922,7 +1032,11 @@ function anime(t) {
   dernierT = t;
   const omega = 2 * Math.PI * reglages.avionVit / 60;
   ctx.clearRect(0, 0, calque.width, calque.height);
-  if (reglages.iss) { verifieIss(t); dessineIss(); }
+  luneExtra += 2 * Math.PI * reglages.luneVit / 60 * dt;
+  const ms = instant();
+  const P = reglages.iss ? issDansVue(ms) : null;
+  if (reglages.iss || reglages.lune || rendu3d) dessine3d(P, P && (issDansVue(ms + 20000) || P), P && eclaire(P), ms);
+  if (reglages.iss) { verifieIss(t); dessineIss(P); }
   for (const av of avions) {
     av.theta += av.sens * omega * av.facteurVit * dt;
     dessineAvion(av, t);
@@ -930,11 +1044,11 @@ function anime(t) {
 }
 function lanceAnimation() {
   ajusteFlotte();
-  if (!boucleActive && (avions.length || reglages.iss)) {
+  if (!boucleActive && (avions.length || reglages.iss || reglages.lune)) {
     boucleActive = true;
     dernierT = 0;
     requestAnimationFrame(anime);
-  } else if (!avions.length && !reglages.iss) {
+  } else if (!avions.length && !reglages.iss && !reglages.lune) {
     ctx.clearRect(0, 0, calque.width, calque.height);
     if (rendu3d) rendu3d.clear();
   }
@@ -975,6 +1089,10 @@ function applique(cle) {
   }
   if (cle.startsWith("iss")) {
     if (cle === "iss") lanceAnimation();
+    return;
+  }
+  if (cle.startsWith("lune")) {
+    if (cle === "lune") lanceAnimation();
     return;
   }
   rendu(true);

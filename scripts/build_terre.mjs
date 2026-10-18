@@ -19,6 +19,8 @@ writeFileSync(dossier + "fond-assets.js", "window.TERRE_ASSETS = " + JSON.string
   jour: uri("textures/jour.jpg", "image/jpeg"),
   nuit: uri("textures/nuit.jpg", "image/jpeg"),
   iss: uri("models/iss.glb", "model/gltf-binary"),
+  lune: uri("textures/lune.jpg", "image/jpeg"),
+  luneRelief: uri("textures/lune_relief.jpg", "image/jpeg"),
 }) + ";\n");
 
 let html = readFileSync(dossier + "index.html", "utf8");

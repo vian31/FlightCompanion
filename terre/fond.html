@@ -99,6 +99,12 @@ else window.onerror = function (m) { terreMessage("Erreur : " + m + "<br>" + TER
   <label class="case">Couleur de la trace <input type="color" data-cle="issCouleur"></label>
   <label>Reflets des panneaux <output></output><input type="range" data-cle="issReflet" min="0" max="2" step="0.05"></label>
 
+  <h2>Lune</h2>
+  <label class="case">Afficher <input type="checkbox" data-cle="lune"></label>
+  <label>Taille <output></output><input type="range" data-cle="luneTaille" min="0.05" max="0.6" step="0.01"></label>
+  <label>Distance au globe <output></output><input type="range" data-cle="luneDist" min="1.3" max="4" step="0.05"></label>
+  <label>Vitesse (tours / min, 0 = temps r&eacute;el) <output></output><input type="range" data-cle="luneVit" min="0" max="2" step="0.05"></label>
+
   <h2>Avions</h2>
   <label>Nombre <output></output><input type="range" data-cle="avions" min="0" max="30" step="1"></label>
   <label>Taille <output></output><input type="range" data-cle="avionTaille" min="0.3" max="3" step="0.1"></label>

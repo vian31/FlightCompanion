@@ -7,3 +7,8 @@ three.module.min.js, jsm/loaders/GLTFLoader.js, jsm/utils/BufferGeometryUtils.js
   Modifications : decompression Draco, repere orbital (X avant, Y ferme, Z nadir),
   ferme normalisee a 1 de large, recentrage sur l'axe de la ferme, ailes solaires
   separees du corps (noeuds "corps" et "ailes"), materiaux simplifies.
+
+../textures/lune.jpg, ../textures/lune_relief.jpg
+  Mosaique couleur LRO/LROC (lroc_color_poles_4k) et relief LOLA (ldem_3), NASA/GSFC
+  Scientific Visualization Studio, "CGI Moon Kit" (https://svs.gsfc.nasa.gov/4720),
+  contenu NASA sans droits d'auteur. Conversion en JPEG (couleur 4096x2048, relief 1024x512).
